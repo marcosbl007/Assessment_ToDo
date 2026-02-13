@@ -1,35 +1,23 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+/**
+ * Componente raíz de la aplicación.
+ */
+import { useState } from 'react';
+import { LoginPage, RegisterPage } from './features/auth';
+
+/** Tipos de vista disponibles en el módulo de autenticación. */
+type AuthView = 'login' | 'register';
 
 function App() {
-  const [count, setCount] = useState(0)
+  /** Controla la navegación entre las vistas de login y registro. */
+  const [authView, setAuthView] = useState<AuthView>('login');
 
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+  /** Rama para la pantalla de registro. */
+  if (authView === 'register') {
+    return <RegisterPage onGoToLogin={() => setAuthView('login')} />;
+  }
+
+  /** Rama por defecto: pantalla de login. */
+  return <LoginPage onGoToRegister={() => setAuthView('register')} />;
 }
 
-export default App
+export default App;

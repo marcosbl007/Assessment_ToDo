@@ -1,0 +1,324 @@
+===== PAGE 1 (obj 2) =====
+
+
+===== PAGE 2 (obj 3) =====
+Assessment Tcnico
+ 
+Desarrollo Full Stack
+ 
+Contexto General
+ 
+El objetivo de esta prueba es evaluar las competencias de desarrollo full stack
+ 
+mediante la construccin de una aplicacin de gestin de tareas (To
+
+Do) con un nivel 
+de complejidad mayor al cl
+
+sico, incorporando unidades organizacionales, roles, 
+permisos, y un flujo de aprobaci
+
+n.
+ 
+La aplicacin simula un entorno corporativo donde mltiples unidades trabajan sobre 
+un conjunto comn de tareas, pero con reglas claras de visibilidad, edicin y 
+aprobacin.
+ 
+Unidades Organizacionales
+ 
+
+ 
+Recursos Humanos (RRHH)
+ 
+
+ 
+Finanzas
+ 
+
+ 
+B
+usiness 
+In
+telligence
+ 
+(BI)
+ 
+ 
+Roles y Jerarquas
+ 
+Cada unidad debe contar con al menos dos niveles de usuario:
+ 
+
+ 
+Usuario estndar
+ 
+
+ 
+Usuario supervisor
+ 
+ 
+Permisos generales
+ 
+Accin
+ 
+Usuario estndar
+ 
+Usuario supervisor
+ 
+Ver todas las tareas
+ 
+
+ 
+
+ 
+Crear tareas
+ 
+
+ 
+
+ 
+Editar tareas de su unidad
+ 
+
+ 
+
+ 
+Eliminar
+ 
+tareas de su unidad
+ 
+
+ 
+
+ 
+Completar tareas de su unidad
+ 
+
+ 
+
+ 
+Aprobar cambios
+ 
+
+ 
+
+ 
+
+
+===== PAGE 3 (obj 45) =====
+Modelo de Tareas (To
+
+Do)
+ 
+Cada tarea debe contener como mnimo los siguientes campos:
+ 
+
+ 
+ID
+ 
+
+ 
+Nombre de la tarea
+ 
+
+ 
+Descripcin
+ 
+
+ 
+Estado (Ej
+emplo
+: pendiente, en progreso, completada)
+ 
+
+ 
+Prioridad (
+Ejemplo: 
+baja, media, alta)
+ 
+
+ 
+Fecha de creacin
+ 
+ 
+Flujo de Aprobacin
+ 
+Tabla principal de tareas
+ 
+
+ 
+Contiene nicamente tareas y cambios aprobados.
+ 
+
+ 
+Todas las tareas en esta tabla son visibles para todos los usuarios.
+ 
+Tabla temporal / pendiente de aprobacin
+ 
+
+ 
+Cuando un usuario estndar crea, edita, completa o solicita la eliminacin de 
+una tarea:
+ 
+o
+ 
+El cambio no impacta directamente en la tabla principal.
+ 
+o
+ 
+Se guarda en una tabla temporal de solicitudes.
+ 
+
+ 
+Solo los encargados de la misma unidad pueden:
+ 
+o
+ 
+Ver las solicitudes pendientes.
+ 
+o
+ 
+Aprobar o rechazar los cambios.
+ 
+
+ 
+Una vez aprobado:
+ 
+o
+ 
+El cambio se refleja en la tabla principal.
+ 
+ 
+Diseo y Experiencia de Usuario
+ 
+
+ 
+La aplicacin debe contar con una interfaz clara, consistente y usable, acorde 
+a un entorno corporativo.
+ 
+
+ 
+El diseo visual de la aplicacin es libre, y se evaluar el criterio esttico, la 
+coherencia entre pantallas y la experiencia de usuario.
+ 
+ 
+
+
+===== PAGE 4 (obj 52) =====
+Login
+ 
+
+ 
+Debe ajustarse al diseo proporcionado, respetando la imagen y la paleta de 
+colores entregadas.
+ 
+
+ 
+Se evaluar la fidelidad visual al diseo entregado.
+ 
+Registro
+ 
+
+ 
+Diseo libre
+ 
+
+ 
+Debe permitir la seleccin de unidad y rol.
+ 
+Gestin de tareas
+ 
+
+ 
+Diseo libre
+ 
+
+ 
+Debe permitir la visualizacin clara de las tareas, su estado, prioridad y 
+acciones disponibles segn el rol del usuario.
+ 
+
+ 
+Se valorar una experiencia de uso clara y ordenada.
+ 
+ 
+Requisitos Tcnicos
+ 
+Obligatorios
+ 
+
+ 
+Desarrollo del backend utilizando Node.js con Express (se sugiere el uso de 
+TypeScript).
+ 
+
+ 
+Desarrollo del frontend utilizando React.js.
+ 
+
+ 
+Implementacin de servicios RESTful para la comunicacin entre frontend y 
+backend.
+ 
+
+ 
+Implementacin de un mecanismo de autenticacin segura (JWT, sesiones u 
+otro equivalente).
+ 
+
+ 
+Gestin de roles y control de permisos a nivel de backend.
+ 
+
+ 
+Implementacin de validaciones tanto en el frontend como en el backend.
+ 
+
+ 
+Persistencia de datos utilizando una base de datos relacional o no relacional
+ 
+
+ 
+Simulacin y/o documentacin de pruebas de los endpoints mediante Postman 
+o Swagger
+.
+ 
+ 
+ 
+ 
+
+
+===== PAGE 5 (obj 54) =====
+Entregables
+ 
+
+ 
+Repositorio con el cdigo fuente.
+ 
+
+ 
+Instrucciones claras para levantar el proyecto.
+ 
+
+ 
+Breve documento explicando:
+ 
+o
+ 
+Modelo de datos y justificacin
+ 
+o
+ 
+Principales decisiones tcnicas tomadas durante el desarrollo.
+ 
+o
+ 
+Breve descripcin del flujo de permisos y aprobaciones.
+ 
+ 
+ 
+Se valorar la inclusin de funcionalidades, estructuras o mejoras adicionales que 
+el/la candidato/a considere relevantes, siempre que estn justificadas y alineadas con 
+el dominio del problema.
+ 
+
