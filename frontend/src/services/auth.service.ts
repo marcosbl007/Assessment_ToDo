@@ -3,6 +3,8 @@ import type {
   RegisterFormData,
   SupervisorTokenRequestData,
   SupervisorTokenRequestResult,
+  UpdatePasswordData,
+  UpdateProfileData,
   User,
 } from '../types';
 
@@ -136,18 +138,55 @@ export async function meRequest(): Promise<{ user: User; permissions: string[] }
   }
 
   const payload = (await response.json()) as {
-    user: { id: number; email: string; role: 'STANDARD' | 'SUPERVISOR'; unit: string };
+    user: AuthApiUser;
     permissions: string[];
   };
 
   return {
-    user: {
-      id: String(payload.user.id),
-      username: payload.user.email,
-      email: payload.user.email,
-      unit: payload.user.unit,
-      role: payload.user.role,
-    },
+    user: mapApiUser(payload.user),
     permissions: payload.permissions,
   };
+}
+
+export async function updateProfileRequest(data: UpdateProfileData): Promise<User> {
+  const token = getSessionToken();
+  if (!token) {
+    throw new Error('No hay sesión activa');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/auth/me/profile`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    return parseError(response);
+  }
+
+  const payload = (await response.json()) as { user: AuthApiUser };
+  return mapApiUser(payload.user);
+}
+
+export async function updatePasswordRequest(data: UpdatePasswordData): Promise<void> {
+  const token = getSessionToken();
+  if (!token) {
+    throw new Error('No hay sesión activa');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/auth/me/password`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    return parseError(response);
+  }
 }

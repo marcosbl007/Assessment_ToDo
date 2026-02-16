@@ -11,6 +11,8 @@ authRouter.post('/register', authController.register);
 authRouter.post('/login', authController.login);
 authRouter.post('/supervisor-token/request', authController.requestSupervisorToken);
 authRouter.get('/me', authenticate, authController.me);
+authRouter.put('/me/profile', authenticate, authController.updateProfile);
+authRouter.put('/me/password', authenticate, authController.updatePassword);
 authRouter.get('/can-approve', authenticate, requirePermission('TASK_APPROVE_CHANGES'), (_req, res) => {
 	res.status(200).json({ message: 'Permiso de aprobación confirmado' });
 });

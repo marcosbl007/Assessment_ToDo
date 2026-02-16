@@ -17,6 +17,11 @@ const REGISTER_SELECT = `
 `;
 
 export class PostgresAuthRepository implements AuthRepository {
+  async findUserById(userId: number): Promise<AuthUser | null> {
+    const { rows } = await pool.query<AuthUser>(REGISTER_SELECT, [userId]);
+    return rows[0] ?? null;
+  }
+
   async findUserByIdentifier(identifier: string): Promise<UserWithPassword | null> {
     const normalized = identifier.trim().toLowerCase();
 
@@ -124,5 +129,42 @@ export class PostgresAuthRepository implements AuthRepository {
 
     const { rows } = await pool.query<{ code: string }>(query, [userId]);
     return rows.map((row) => row.code);
+  }
+
+  async updateProfileByUserId(userId: number, data: { name: string; email: string }): Promise<AuthUser> {
+    const updateQuery = `
+      UPDATE users
+      SET full_name = $2,
+          email = $3
+      WHERE id = $1
+      RETURNING id
+    `;
+
+    const normalizedEmail = data.email.trim().toLowerCase();
+    const { rows } = await pool.query<{ id: number }>(updateQuery, [userId, data.name.trim(), normalizedEmail]);
+
+    const updatedUserId = rows[0]?.id;
+    if (!updatedUserId) {
+      throw new Error('No se pudo actualizar el perfil del usuario.');
+    }
+
+    const result = await pool.query<AuthUser>(REGISTER_SELECT, [updatedUserId]);
+    const user = result.rows[0];
+
+    if (!user) {
+      throw new Error('Perfil actualizado pero no recuperable.');
+    }
+
+    return user;
+  }
+
+  async updatePasswordByUserId(userId: number, passwordHash: string): Promise<void> {
+    const query = `
+      UPDATE users
+      SET password_hash = $2
+      WHERE id = $1
+    `;
+
+    await pool.query(query, [userId, passwordHash]);
   }
 }

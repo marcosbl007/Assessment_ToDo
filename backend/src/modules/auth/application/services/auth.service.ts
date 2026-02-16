@@ -6,7 +6,15 @@ import type { MailService } from '../../../../shared/services/mail.service';
 import type { AuthRepository } from '../ports/AuthRepository';
 import { AuthFlowContext } from '../state/auth-flow.state';
 import { RoleNormalizationContext, type RoleCode } from '../strategies/role.strategy';
-import type { AuthUser, LoginRequest, RegisterRequest, SupervisorTokenRequest, SupervisorTokenResponse } from '../../auth.types';
+import type {
+  AuthUser,
+  LoginRequest,
+  RegisterRequest,
+  SupervisorTokenRequest,
+  SupervisorTokenResponse,
+  UpdatePasswordRequest,
+  UpdateProfileRequest,
+} from '../../auth.types';
 
 export interface AuthResponse {
   token: string;
@@ -242,5 +250,40 @@ export class AuthService {
 
   async getPermissions(userId: number): Promise<string[]> {
     return this.authRepository.findPermissionsByUserId(userId);
+  }
+
+  async getUserById(userId: number): Promise<AuthUser> {
+    const user = await this.authRepository.findUserById(userId);
+    if (!user) {
+      throw new HttpError(404, 'Usuario no encontrado.');
+    }
+
+    return user;
+  }
+
+  async updateProfile(userId: number, payload: UpdateProfileRequest): Promise<AuthUser> {
+    if (!payload.name?.trim() || !payload.email?.trim()) {
+      throw new HttpError(400, 'name y email son obligatorios para actualizar el perfil.');
+    }
+
+    const existing = await this.authRepository.findUserByEmail(payload.email);
+    if (existing && existing.id !== userId) {
+      throw new HttpError(409, 'El correo ingresado ya está registrado por otro usuario.');
+    }
+
+    return this.authRepository.updateProfileByUserId(userId, {
+      name: payload.name,
+      email: payload.email,
+    });
+  }
+
+  async updatePassword(userId: number, payload: UpdatePasswordRequest): Promise<void> {
+    if (!payload.newPassword?.trim()) {
+      throw new HttpError(400, 'newPassword es obligatoria.');
+    }
+
+    this.ensurePasswordStrength(payload.newPassword);
+    const passwordHash = await bcrypt.hash(payload.newPassword, 12);
+    await this.authRepository.updatePasswordByUserId(userId, passwordHash);
   }
 }

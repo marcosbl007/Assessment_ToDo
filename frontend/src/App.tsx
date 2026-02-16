@@ -3,6 +3,7 @@
  */
 import { useEffect, useState } from 'react';
 import { LoginPage, RegisterPage } from './features/auth';
+import { StandardDashboardPage } from './features/standard';
 import { SupervisorDashboardPage } from './features/supervisor';
 import type { User } from './types';
 import { clearSession, getSessionToken, meRequest } from './services';
@@ -60,33 +61,7 @@ function App() {
       return <SupervisorDashboardPage user={authenticatedUser} onLogout={handleLogout} />;
     }
 
-    return (
-      <main className="min-h-screen bg-slate-50 p-8 text-slate-900">
-        <section className="mx-auto w-full max-w-3xl rounded-2xl border border-slate-200 bg-white p-8 shadow-lg">
-          <div className="mb-6 flex items-center justify-between">
-            <h1 className="text-2xl font-bold tracking-[0.16em]">
-              PESTAÑA STANDARD
-            </h1>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium transition hover:bg-slate-100"
-            >
-              Cerrar sesión
-            </button>
-          </div>
-
-          <div className="space-y-2 text-sm text-slate-600">
-            <p>
-              Bienvenido, <span className="font-semibold text-slate-900">{authenticatedUser.username}</span>
-            </p>
-            <p>Correo: {authenticatedUser.email}</p>
-            <p>Unidad: {authenticatedUser.unit}</p>
-            <p>Rol: {authenticatedUser.role}</p>
-          </div>
-        </section>
-      </main>
-    );
+    return <StandardDashboardPage user={authenticatedUser} onLogout={handleLogout} />;
   }
 
   /** Rama para la pantalla de registro. */

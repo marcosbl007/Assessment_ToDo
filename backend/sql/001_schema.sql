@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   status                  task_status NOT NULL DEFAULT 'PENDING',
   priority                task_priority NOT NULL DEFAULT 'MEDIUM',
   due_date                DATE,
+  assigned_to_user_id     BIGINT REFERENCES users(id),
   created_by_user_id      BIGINT NOT NULL REFERENCES users(id),
   approved_by_user_id     BIGINT REFERENCES users(id),
   completed_at            TIMESTAMPTZ,
@@ -87,6 +88,9 @@ CREATE TABLE IF NOT EXISTS tasks (
   CHECK (length(trim(title)) >= 3),
   CHECK (due_date IS NULL OR due_date >= DATE '2000-01-01')
 );
+
+ALTER TABLE tasks
+ADD COLUMN IF NOT EXISTS assigned_to_user_id BIGINT REFERENCES users(id);
 
 CREATE TABLE IF NOT EXISTS task_change_requests (
   id                      BIGSERIAL PRIMARY KEY,
@@ -268,6 +272,7 @@ BEGIN
       status,
       priority,
       due_date,
+      assigned_to_user_id,
       created_by_user_id,
       approved_by_user_id
     )
@@ -278,6 +283,7 @@ BEGIN
       COALESCE((v_request.payload ->> 'status')::task_status, 'PENDING'),
       COALESCE((v_request.payload ->> 'priority')::task_priority, 'MEDIUM'),
       (v_request.payload ->> 'dueDate')::DATE,
+      (v_request.payload ->> 'assignedToUserId')::BIGINT,
       v_request.requested_by_user_id,
       p_supervisor_user_id
     )
@@ -290,6 +296,7 @@ BEGIN
         status = COALESCE((v_request.payload ->> 'status')::task_status, status),
         priority = COALESCE((v_request.payload ->> 'priority')::task_priority, priority),
         due_date = COALESCE((v_request.payload ->> 'dueDate')::DATE, due_date),
+      assigned_to_user_id = COALESCE((v_request.payload ->> 'assignedToUserId')::BIGINT, assigned_to_user_id),
         approved_by_user_id = p_supervisor_user_id
     WHERE id = v_request.task_id
       AND is_active = TRUE
@@ -351,11 +358,14 @@ SELECT
   ou.code AS organizational_unit_code,
   ou.name AS organizational_unit_name,
   creator.full_name AS created_by,
-  approver.full_name AS approved_by
+  approver.full_name AS approved_by,
+  t.assigned_to_user_id,
+  assignee.full_name AS assigned_to
 FROM tasks t
 JOIN organizational_units ou ON ou.id = t.organizational_unit_id
 JOIN users creator ON creator.id = t.created_by_user_id
 LEFT JOIN users approver ON approver.id = t.approved_by_user_id
+LEFT JOIN users assignee ON assignee.id = t.assigned_to_user_id
 WHERE t.is_active = TRUE;
 
 CREATE OR REPLACE VIEW vw_pending_change_requests AS

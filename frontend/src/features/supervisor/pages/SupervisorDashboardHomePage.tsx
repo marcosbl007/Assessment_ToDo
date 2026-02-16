@@ -1,6 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { TaskItem, UnitUser } from '../../../types';
+import { PaginationControls } from '../components/molecules/PaginationControls';
 import { formatDate } from '../utils';
+
+const ITEMS_PER_PAGE = 8;
 
 interface SupervisorDashboardHomePageProps {
   tasks: TaskItem[];
@@ -13,115 +16,27 @@ interface SupervisorDashboardHomePageProps {
 }
 
 export const SupervisorDashboardHomePage = ({
-  tasks: _tasks,
-  selectedAssignees: _selectedAssignees,
-  unitUsers: _unitUsers,
-  onAssigneeChange: _onAssigneeChange,
-  onAssignTask: _onAssignTask,
-  onCompleteTask: _onCompleteTask,
-  onDeleteTask: _onDeleteTask,
+  tasks,
+  selectedAssignees,
+  unitUsers,
+  onAssigneeChange,
+  onAssignTask,
+  onCompleteTask,
+  onDeleteTask,
 }: SupervisorDashboardHomePageProps) => {
-  interface PreviewTask extends TaskItem {
-    assignedTo: {
-      name: string;
-      initials: string;
-    };
-  }
+  const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const previewTasks: PreviewTask[] = [
-    {
-      id: 101,
-      title: 'Auditoría de inventario CO2',
-      description: 'Validar equipos registrados en almacén central y actualizar observaciones pendientes.',
-      status: 'IN_PROGRESS',
-      priority: 'HIGH',
-      dueDate: '2026-02-18T11:30:00.000Z',
-      completedAt: null,
-      createdAt: '2026-02-14T09:00:00.000Z',
-      organizationalUnitCode: 'RH',
-      organizationalUnitName: 'Recursos Humanos',
-      createdBy: 'Marcos Supervisor',
-      approvedBy: null,
-      assignedTo: { name: 'Mario San', initials: 'MS' },
-    },
-    {
-      id: 102,
-      title: 'Revisión de tickets críticos',
-      description: 'Revisar solicitudes de prioridad alta y dejar decisión de aprobación para cierre del día.',
-      status: 'PENDING',
-      priority: 'MEDIUM',
-      dueDate: '2026-02-19T16:00:00.000Z',
-      completedAt: null,
-      createdAt: '2026-02-13T15:30:00.000Z',
-      organizationalUnitCode: 'RH',
-      organizationalUnitName: 'Recursos Humanos',
-      createdBy: 'Marcos Supervisor',
-      approvedBy: null,
-      assignedTo: { name: 'Darlene Fox', initials: 'DF' },
-    },
-    {
-      id: 103,
-      title: 'Actualización de reporte mensual',
-      description: 'Consolidar métricas de tareas aprobadas y exportar resumen para la reunión gerencial.',
-      status: 'COMPLETED',
-      priority: 'LOW',
-      dueDate: '2026-02-20T10:00:00.000Z',
-      completedAt: '2026-02-12T10:45:00.000Z',
-      createdAt: '2026-02-12T08:10:00.000Z',
-      organizationalUnitCode: 'RH',
-      organizationalUnitName: 'Recursos Humanos',
-      createdBy: 'Marcos Supervisor',
-      approvedBy: 'Laura Jefa',
-      assignedTo: { name: 'Floyd Miles', initials: 'FM' },
-    },
-    {
-      id: 104,
-      title: 'Control de mantenimiento preventivo',
-      description: 'Confirmar checklist de mantenimiento de estaciones de trabajo del segundo piso.',
-      status: 'IN_PROGRESS',
-      priority: 'HIGH',
-      dueDate: '2026-02-21T14:15:00.000Z',
-      completedAt: null,
-      createdAt: '2026-02-11T11:20:00.000Z',
-      organizationalUnitCode: 'RH',
-      organizationalUnitName: 'Recursos Humanos',
-      createdBy: 'Marcos Supervisor',
-      approvedBy: null,
-      assignedTo: { name: 'Ralph Edwards', initials: 'RE' },
-    },
-    {
-      id: 105,
-      title: 'Carga de evidencias semanales',
-      description: 'Subir evidencias fotográficas de cumplimiento y documentación firmada del equipo.',
-      status: 'PENDING',
-      priority: 'MEDIUM',
-      dueDate: '2026-02-22T09:00:00.000Z',
-      completedAt: null,
-      createdAt: '2026-02-10T16:05:00.000Z',
-      organizationalUnitCode: 'RH',
-      organizationalUnitName: 'Recursos Humanos',
-      createdBy: 'Marcos Supervisor',
-      approvedBy: null,
-      assignedTo: { name: 'Courtney Henry', initials: 'CH' },
-    },
-    {
-      id: 106,
-      title: 'Cierre de incidencias atrasadas',
-      description: 'Resolver incidencias con más de 7 días y registrar comentario de cierre validado.',
-      status: 'COMPLETED',
-      priority: 'LOW',
-      dueDate: '2026-02-23T12:45:00.000Z',
-      completedAt: '2026-02-09T18:25:00.000Z',
-      createdAt: '2026-02-09T09:40:00.000Z',
-      organizationalUnitCode: 'RH',
-      organizationalUnitName: 'Recursos Humanos',
-      createdBy: 'Marcos Supervisor',
-      approvedBy: 'Laura Jefa',
-      assignedTo: { name: 'Munawir Elrendi', initials: 'ME' },
-    },
-  ];
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [tasks]);
 
-  const [selectedTask, setSelectedTask] = useState<PreviewTask | null>(null);
+  const totalPages = Math.max(1, Math.ceil(tasks.length / ITEMS_PER_PAGE));
+
+  const paginatedTasks = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return tasks.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [tasks, currentPage]);
 
   const statusLabelMap: Record<TaskItem['status'], string> = {
     PENDING: 'Pendiente',
@@ -147,6 +62,15 @@ export const SupervisorDashboardHomePage = ({
     LOW: 'text-[#95E28F] bg-[#18261B]',
   };
 
+  const getInitials = (name: string) =>
+    name
+      .split(' ')
+      .map((part) => part[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join('')
+      .toUpperCase();
+
   const datePill = (value: string | null) => {
     if (!value) {
       return 'Sin fecha';
@@ -166,8 +90,14 @@ export const SupervisorDashboardHomePage = ({
 
   return (
     <div className="space-y-4">
+      {tasks.length === 0 && (
+        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4 text-sm text-[var(--blanco)]/75">
+          No hay tareas aprobadas en este momento.
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-        {previewTasks.map((task) => (
+        {paginatedTasks.map((task) => (
           <article
             key={task.id}
             onClick={() => setSelectedTask(task)}
@@ -203,10 +133,12 @@ export const SupervisorDashboardHomePage = ({
 
               <div className="flex items-center gap-2">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#B8D9CC] text-[10px] font-bold text-[#2A6B56]">
-                  {task.assignedTo.initials}
+                  {getInitials(task.assignedTo ?? task.createdBy)}
                 </span>
                 <div className="min-w-0">
-                  <p className="truncate text-xs font-semibold text-[var(--blanco)]/90">{task.assignedTo.name}</p>
+                  <p className="truncate text-xs font-semibold text-[var(--blanco)]/90">
+                    {task.assignedTo ?? 'Sin asignar'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -215,6 +147,8 @@ export const SupervisorDashboardHomePage = ({
           </article>
         ))}
       </div>
+
+      <PaginationControls currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
 
       {selectedTask && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 px-4 backdrop-blur-sm">
@@ -277,7 +211,7 @@ export const SupervisorDashboardHomePage = ({
                 </div>
                 <div className="rounded-lg bg-black/20 p-3">
                   <p className="text-[11px] text-[var(--blanco)]/55">Asignada a</p>
-                  <p className="font-semibold">{selectedTask.assignedTo.name}</p>
+                  <p className="font-semibold">{selectedTask.assignedTo ?? 'Sin asignar'}</p>
                 </div>
                 <div className="rounded-lg bg-black/20 p-3 sm:col-span-2">
                   <p className="text-[11px] text-[var(--blanco)]/55">Unidad</p>
@@ -285,20 +219,54 @@ export const SupervisorDashboardHomePage = ({
                     {selectedTask.organizationalUnitName} ({selectedTask.organizationalUnitCode})
                   </p>
                 </div>
+                <div className="rounded-lg bg-black/20 p-3 sm:col-span-2">
+                  <p className="mb-2 text-[11px] text-[var(--blanco)]/55">Solicitar reasignación</p>
+                  <select
+                    value={selectedAssignees[selectedTask.id] ?? String(selectedTask.assignedToUserId ?? '')}
+                    onChange={(event) => onAssigneeChange(selectedTask.id, event.target.value)}
+                    className="w-full rounded-md border border-white/15 bg-transparent px-3 py-2 text-xs text-[var(--blanco)] outline-none focus:border-[var(--dorado)]/45"
+                  >
+                    <option value="">Seleccionar usuario...</option>
+                    {unitUsers.map((unitUser) => (
+                      <option key={unitUser.id} value={unitUser.id}>
+                        {unitUser.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="mt-5 flex flex-wrap justify-center gap-3">
                 <button
                   type="button"
+                  onClick={() => {
+                    onDeleteTask(selectedTask.id);
+                    setSelectedTask(null);
+                  }}
                   className="rounded-lg border border-red-400/35 px-4 py-2 text-sm font-semibold text-red-300"
                 >
-                  Eliminar tarea
+                  Solicitar eliminación
                 </button>
                 <button
                   type="button"
+                  onClick={() => {
+                    onCompleteTask(selectedTask.id);
+                    setSelectedTask(null);
+                  }}
+                  disabled={selectedTask.status === 'COMPLETED'}
+                  className="rounded-lg border border-[#9BE2B3]/35 px-4 py-2 text-sm font-semibold text-[#9BE2B3] disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  Solicitar completado
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAssignTask(selectedTask.id);
+                    setSelectedTask(null);
+                  }}
                   className="rounded-lg bg-[var(--dorado)] px-4 py-2 text-sm font-semibold text-[var(--blanco)]"
                 >
-                  Actualizar tarea
+                  Solicitar asignación
                 </button>
               </div>
             </div>

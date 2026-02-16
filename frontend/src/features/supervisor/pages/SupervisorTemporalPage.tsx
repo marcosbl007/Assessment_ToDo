@@ -1,6 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { PendingTaskChangeRequest } from '../../../types';
+import { PaginationControls } from '../components/molecules/PaginationControls';
 import { changeTypeLabelMap, formatDate } from '../utils';
+
+const ITEMS_PER_PAGE = 8;
 
 interface SupervisorTemporalPageProps {
   pendingRequests: PendingTaskChangeRequest[];
@@ -9,59 +12,23 @@ interface SupervisorTemporalPageProps {
 
 export const SupervisorTemporalPage = ({ pendingRequests, onDecision }: SupervisorTemporalPageProps) => {
   const [selectedRequest, setSelectedRequest] = useState<PendingTaskChangeRequest | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const previewRequests = useMemo<PendingTaskChangeRequest[]>(() => {
-    if (pendingRequests.length > 0) {
-      return pendingRequests;
-    }
-
-    return [
-      {
-        id: 201,
-        taskId: 101,
-        changeType: 'UPDATE',
-        status: 'PENDING',
-        reason: 'Ajuste de prioridad por cambio de urgencia operacional.',
-        payload: { priority: 'HIGH', description: 'Actualizar prioridad y observación.' },
-        requestedAt: '2026-02-15T08:40:00.000Z',
-        requestedBy: 'Mario San',
-        organizationalUnitCode: 'RH',
-        organizationalUnitName: 'Recursos Humanos',
-        currentTaskTitle: 'Auditoría de inventario CO2',
-      },
-      {
-        id: 202,
-        taskId: 104,
-        changeType: 'COMPLETE',
-        status: 'PENDING',
-        reason: 'Solicitud de cierre por cumplimiento total del checklist.',
-        payload: {},
-        requestedAt: '2026-02-15T10:15:00.000Z',
-        requestedBy: 'Ralph Edwards',
-        organizationalUnitCode: 'RH',
-        organizationalUnitName: 'Recursos Humanos',
-        currentTaskTitle: 'Control de mantenimiento preventivo',
-      },
-      {
-        id: 203,
-        taskId: 105,
-        changeType: 'DELETE',
-        status: 'PENDING',
-        reason: 'Registro duplicado detectado por el equipo de control.',
-        payload: {},
-        requestedAt: '2026-02-15T11:20:00.000Z',
-        requestedBy: 'Courtney Henry',
-        organizationalUnitCode: 'RH',
-        organizationalUnitName: 'Recursos Humanos',
-        currentTaskTitle: 'Carga de evidencias semanales',
-      },
-    ];
+  useEffect(() => {
+    setCurrentPage(1);
   }, [pendingRequests]);
+
+  const totalPages = Math.max(1, Math.ceil(pendingRequests.length / ITEMS_PER_PAGE));
+
+  const paginatedRequests = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return pendingRequests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [pendingRequests, currentPage]);
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-        {previewRequests.map((request) => (
+        {paginatedRequests.map((request) => (
           <article
             key={request.id}
             onClick={() => setSelectedRequest(request)}
@@ -118,6 +85,14 @@ export const SupervisorTemporalPage = ({ pendingRequests, onDecision }: Supervis
           </article>
         ))}
       </div>
+
+      <PaginationControls currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+
+      {pendingRequests.length === 0 && (
+        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4 text-sm text-[var(--blanco)]/75">
+          No hay solicitudes temporales pendientes.
+        </div>
+      )}
 
       {selectedRequest && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 px-4 backdrop-blur-sm">

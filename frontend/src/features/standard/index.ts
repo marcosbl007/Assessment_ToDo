@@ -1,0 +1,1 @@
+export { StandardDashboardPage } from './StandardDashboardPage';
