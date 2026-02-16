@@ -3,6 +3,7 @@ import express, { Request, Response } from 'express';
 import { env } from './config/env';
 import { pool } from './db/pool';
 import { authRouter } from './modules/auth/auth.routes';
+import { tasksRouter } from './modules/tasks/tasks.routes';
 
 const app = express();
 const PORT = env.port;
@@ -24,6 +25,7 @@ app.get('/health', async (_req: Request, res: Response) => {
 });
 
 app.use('/api/auth', authRouter);
+app.use('/api/tasks', tasksRouter);
 
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
