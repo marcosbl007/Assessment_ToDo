@@ -1,9 +1,14 @@
+/**
+ * - Carga y validación de variables de entorno.
+ * - Expone un objeto tipado con configuración de app, DB y JWT.
+ */
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 const required = ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD', 'JWT_SECRET'] as const;
 
+/** Valida que existan las variables críticas para iniciar la aplicación. */
 for (const key of required) {
   if (!process.env[key]) {
     throw new Error(`Falta variable de entorno requerida: ${key}`);

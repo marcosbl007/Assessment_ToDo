@@ -1,3 +1,7 @@
+/**
+ * - Extensión de tipos de Express para incluir `authUser` en `Request`.
+ * - Mantiene compatibilidad tipada con middlewares de autenticación.
+ */
 import type { RoleCode } from '../modules/auth/application/strategies/role.strategy';
 
 export interface AuthenticatedRequestUser {

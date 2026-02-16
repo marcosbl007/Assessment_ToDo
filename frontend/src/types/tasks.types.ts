@@ -1,3 +1,7 @@
+/**
+ * - Tipos compartidos del dominio de tareas en frontend.
+ * - Define contratos de API y estructuras para dashboards.
+ */
 export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH';
 export type ApprovalDecision = 'APPROVED' | 'REJECTED';

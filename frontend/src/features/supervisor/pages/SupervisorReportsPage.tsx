@@ -1,3 +1,7 @@
+/**
+ * - Página de reportes del supervisor.
+ * - Muestra KPIs, distribución y historial paginado de tareas.
+ */
 import { useEffect, useMemo, useState } from 'react';
 import { FaCheckCircle, FaChevronLeft, FaChevronRight, FaClock, FaTasks } from 'react-icons/fa';
 import type { SupervisorReportSnapshot } from '../../../types';

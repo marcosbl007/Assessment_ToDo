@@ -1,3 +1,7 @@
+/**
+ * - Modal de creación de tareas para supervisor.
+ * - Captura título, prioridad, fecha objetivo y asignación.
+ */
 import { FaTimes } from 'react-icons/fa';
 import type { UnitUser } from '../../../../types';
 import type { TaskCreationForm } from '../../types';

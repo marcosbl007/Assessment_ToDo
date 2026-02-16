@@ -1,3 +1,7 @@
+/**
+ * - Página principal del supervisor.
+ * - Orquesta tareas, temporal, reportes, notificaciones y configuración.
+ */
 import { useEffect, useMemo, useState } from 'react';
 import { FaCheckCircle, FaTimes, FaExclamationTriangle } from 'react-icons/fa';
 import {

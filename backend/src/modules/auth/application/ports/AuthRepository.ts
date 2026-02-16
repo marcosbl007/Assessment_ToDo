@@ -1,3 +1,7 @@
+/**
+ * - Contrato del repositorio para operaciones de autenticación.
+ * - Desacopla `AuthService` de detalles de infraestructura.
+ */
 import type { AuthUser, RegisterRequest } from '../../auth.types';
 
 export interface UserWithPassword extends AuthUser {

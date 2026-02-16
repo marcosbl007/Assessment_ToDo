@@ -1,3 +1,7 @@
+/**
+ * - Controlador HTTP del módulo de tareas.
+ * - Traduce requests/responses y delega la lógica al servicio.
+ */
 import type { Request, Response } from 'express';
 import { HttpError } from '../../shared/errors/HttpError';
 import type { AuthenticatedRequest } from '../../shared/types/authenticated-request';
@@ -14,6 +18,7 @@ import type {
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
+  /** Endpoint para crear tarea o solicitud de creación según rol autenticado. */
   createTaskRequest = async (req: Request, res: Response): Promise<void> => {
     const authReq = req as AuthenticatedRequest;
 
@@ -41,6 +46,7 @@ export class TasksController {
     }
   };
 
+  /** Endpoint para registrar actualización o solicitud de cambio sobre tarea. */
   updateTaskRequest = async (req: Request, res: Response): Promise<void> => {
     const authReq = req as AuthenticatedRequest;
 
@@ -71,6 +77,7 @@ export class TasksController {
     }
   };
 
+  /** Endpoint para completar tarea o solicitar su completado. */
   completeTaskRequest = async (req: Request, res: Response): Promise<void> => {
     const authReq = req as AuthenticatedRequest;
 
@@ -103,6 +110,7 @@ export class TasksController {
     }
   };
 
+  /** Endpoint para eliminar tarea o solicitar eliminación. */
   deleteTaskRequest = async (req: Request, res: Response): Promise<void> => {
     const authReq = req as AuthenticatedRequest;
 
@@ -133,6 +141,7 @@ export class TasksController {
     }
   };
 
+  /** Lista tareas visibles para el usuario autenticado. */
   listApprovedTasks = async (req: Request, res: Response): Promise<void> => {
     const authReq = req as AuthenticatedRequest;
 
@@ -153,6 +162,7 @@ export class TasksController {
     }
   };
 
+  /** Lista solicitudes del usuario autenticado con filtro opcional de estado. */
   listOwnRequests = async (req: Request, res: Response): Promise<void> => {
     const authReq = req as AuthenticatedRequest;
 
@@ -175,6 +185,7 @@ export class TasksController {
     }
   };
 
+  /** Lista usuarios activos de la misma unidad organizacional. */
   listUnitUsers = async (req: Request, res: Response): Promise<void> => {
     const authReq = req as AuthenticatedRequest;
 
@@ -191,6 +202,7 @@ export class TasksController {
     }
   };
 
+  /** Lista solicitudes pendientes para revisión de supervisor. */
   listPendingRequests = async (req: Request, res: Response): Promise<void> => {
     const authReq = req as AuthenticatedRequest;
 
@@ -211,6 +223,7 @@ export class TasksController {
     }
   };
 
+  /** Obtiene snapshot de métricas e historial para reportes del supervisor. */
   getSupervisorReports = async (req: Request, res: Response): Promise<void> => {
     const authReq = req as AuthenticatedRequest;
 
@@ -227,6 +240,7 @@ export class TasksController {
     }
   };
 
+  /** Aplica decisión APPROVED/REJECTED sobre solicitud pendiente. */
   decideRequest = async (req: Request, res: Response): Promise<void> => {
     const authReq = req as AuthenticatedRequest;
 
@@ -256,6 +270,7 @@ export class TasksController {
     }
   };
 
+  /** Mapea errores controlados/no controlados a respuesta HTTP estándar. */
   private handleError(error: unknown, res: Response): void {
     if (error instanceof HttpError) {
       res.status(error.statusCode).json({ message: error.message });

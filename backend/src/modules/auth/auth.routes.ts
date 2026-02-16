@@ -1,3 +1,7 @@
+/**
+ * - Rutas HTTP del módulo de autenticación.
+ * - Incluye registro, login, perfil y verificación de permisos.
+ */
 import { Router } from 'express';
 import { AuthController } from './auth.controller';
 import { authService } from './auth.container';
@@ -13,6 +17,7 @@ authRouter.post('/supervisor-token/request', authController.requestSupervisorTok
 authRouter.get('/me', authenticate, authController.me);
 authRouter.put('/me/profile', authenticate, authController.updateProfile);
 authRouter.put('/me/password', authenticate, authController.updatePassword);
+/** Ruta de verificación rápida para UI sobre permiso de aprobación. */
 authRouter.get('/can-approve', authenticate, requirePermission('TASK_APPROVE_CHANGES'), (_req, res) => {
 	res.status(200).json({ message: 'Permiso de aprobación confirmado' });
 });

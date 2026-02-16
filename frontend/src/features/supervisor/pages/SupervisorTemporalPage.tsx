@@ -1,3 +1,7 @@
+/**
+ * - Tablero temporal de solicitudes de cambio.
+ * - Soporta modo decisión (supervisor) y modo lectura (estándar).
+ */
 import { useEffect, useMemo, useState } from 'react';
 import type { PendingTaskChangeRequest } from '../../../types';
 import { PaginationControls } from '../components/molecules/PaginationControls';

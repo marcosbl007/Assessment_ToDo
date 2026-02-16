@@ -1,3 +1,7 @@
+/**
+ * - Cliente HTTP para endpoints de tareas y reportes.
+ * - Centraliza llamadas autenticadas y manejo de errores de API.
+ */
 import type {
   CreateTaskRequestData,
   DecisionTaskRequestData,

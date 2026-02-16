@@ -1,7 +1,12 @@
+/**
+ * - Implementación PostgreSQL del repositorio de autenticación.
+ * - Encapsula consultas de usuarios, roles y permisos.
+ */
 import { pool } from '../../../db/pool';
 import type { AuthRepository, UnitAndRoleIds, UserWithPassword } from '../application/ports/AuthRepository';
 import type { AuthUser, RegisterRequest } from '../auth.types';
 
+/** Fragmento SELECT reutilizable para recuperar usuario recién creado/actualizado. */
 const REGISTER_SELECT = `
   SELECT
     u.id,
@@ -17,11 +22,13 @@ const REGISTER_SELECT = `
 `;
 
 export class PostgresAuthRepository implements AuthRepository {
+  /** Busca usuario por id con datos de unidad y rol. */
   async findUserById(userId: number): Promise<AuthUser | null> {
     const { rows } = await pool.query<AuthUser>(REGISTER_SELECT, [userId]);
     return rows[0] ?? null;
   }
 
+  /** Busca usuario por email o username normalizado. */
   async findUserByIdentifier(identifier: string): Promise<UserWithPassword | null> {
     const normalized = identifier.trim().toLowerCase();
 
@@ -45,6 +52,7 @@ export class PostgresAuthRepository implements AuthRepository {
     return rows[0] ?? null;
   }
 
+  /** Busca usuario por correo exacto normalizado en minúsculas. */
   async findUserByEmail(email: string): Promise<AuthUser | null> {
     const normalized = email.trim().toLowerCase();
 
@@ -67,6 +75,7 @@ export class PostgresAuthRepository implements AuthRepository {
     return rows[0] ?? null;
   }
 
+  /** Resuelve ids internos de unidad y rol para registro. */
   async findUnitAndRoleIds(organizationalUnit: string, roleCode: string): Promise<UnitAndRoleIds | null> {
     const query = `
       SELECT
@@ -83,6 +92,7 @@ export class PostgresAuthRepository implements AuthRepository {
     return rows[0] ?? null;
   }
 
+  /** Crea usuario persistiendo hash y devuelve representación pública. */
   async createUser(payload: RegisterRequest, passwordHash: string, unitId: number, roleId: number): Promise<AuthUser> {
     const insert = `
       INSERT INTO users (username, full_name, email, password_hash, organizational_unit_id, role_id)
@@ -90,6 +100,7 @@ export class PostgresAuthRepository implements AuthRepository {
       RETURNING id
     `;
 
+    /** Normaliza identificadores para consistencia y restricciones de unicidad. */
     const normalizedEmail = payload.email.trim().toLowerCase();
     const normalizedUsername = payload.username?.trim() ? payload.username.trim().toLowerCase() : null;
 
@@ -102,11 +113,13 @@ export class PostgresAuthRepository implements AuthRepository {
       roleId,
     ]);
 
+    /** Verifica inserción exitosa antes de intentar leer vista pública del usuario. */
     const createdUserId = rows[0]?.id;
     if (!createdUserId) {
       throw new Error('No se pudo crear el usuario');
     }
 
+    /** Reutiliza SELECT central para devolver shape homogéneo en toda la capa auth. */
     const result = await pool.query<AuthUser>(REGISTER_SELECT, [createdUserId]);
     const user = result.rows[0];
 
@@ -117,6 +130,7 @@ export class PostgresAuthRepository implements AuthRepository {
     return user;
   }
 
+  /** Lista códigos de permisos asociados al rol del usuario. */
   async findPermissionsByUserId(userId: number): Promise<string[]> {
     const query = `
       SELECT p.code
@@ -131,6 +145,7 @@ export class PostgresAuthRepository implements AuthRepository {
     return rows.map((row) => row.code);
   }
 
+  /** Actualiza nombre/correo del usuario y retorna perfil actualizado. */
   async updateProfileByUserId(userId: number, data: { name: string; email: string }): Promise<AuthUser> {
     const updateQuery = `
       UPDATE users
@@ -140,14 +155,17 @@ export class PostgresAuthRepository implements AuthRepository {
       RETURNING id
     `;
 
+    /** Aplica normalización de correo también en actualización de perfil. */
     const normalizedEmail = data.email.trim().toLowerCase();
     const { rows } = await pool.query<{ id: number }>(updateQuery, [userId, data.name.trim(), normalizedEmail]);
 
+    /** Si no hay fila retornada, el usuario no existe o no fue actualizado. */
     const updatedUserId = rows[0]?.id;
     if (!updatedUserId) {
       throw new Error('No se pudo actualizar el perfil del usuario.');
     }
 
+    /** Devuelve entidad actualizada con joins de unidad y rol para mantener contrato. */
     const result = await pool.query<AuthUser>(REGISTER_SELECT, [updatedUserId]);
     const user = result.rows[0];
 
@@ -158,6 +176,7 @@ export class PostgresAuthRepository implements AuthRepository {
     return user;
   }
 
+  /** Actualiza hash de contraseña del usuario. */
   async updatePasswordByUserId(userId: number, passwordHash: string): Promise<void> {
     const query = `
       UPDATE users

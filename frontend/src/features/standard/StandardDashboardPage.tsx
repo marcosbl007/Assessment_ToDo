@@ -1,3 +1,7 @@
+/**
+ * - Página principal del usuario estándar.
+ * - Gestiona dashboard general, temporal y notificaciones del usuario.
+ */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FaBell } from 'react-icons/fa';
 import { FaPowerOff } from 'react-icons/fa';

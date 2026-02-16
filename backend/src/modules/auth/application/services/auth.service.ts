@@ -1,3 +1,7 @@
+/**
+ * - Servicio de autenticación y gestión de perfil/contraseña.
+ * - Orquesta login, registro, emisión y verificación de tokens JWT.
+ */
 import bcrypt from 'bcryptjs';
 import jwt, { type Secret, type SignOptions } from 'jsonwebtoken';
 import { env } from '../../../../config/env';
@@ -42,6 +46,7 @@ export class AuthService {
     private readonly mailService: MailService,
   ) {}
 
+  /** Firma JWT de sesión con claims mínimos de usuario. */
   private signAuthToken(user: AuthUser): string {
     const payload = {
       sub: user.id,
@@ -58,15 +63,18 @@ export class AuthService {
     return jwt.sign(payload, secret, options);
   }
 
+  /** Regla mínima de fortaleza de contraseña. */
   private ensurePasswordStrength(password: string): void {
     if (password.length < 8) {
       throw new HttpError(400, 'La contraseña debe tener al menos 8 caracteres.');
     }
   }
 
+  /** Verifica que el token supervisor sea válido y coherente con email/unidad. */
   private validateSupervisorRegistrationToken(token: string, email: string, organizationalUnit: string): void {
     let decoded: unknown;
 
+    /** Verifica firma y expiración del token firmado por backend. */
     try {
       decoded = jwt.verify(token, env.jwt.secret);
     } catch {
@@ -81,6 +89,7 @@ export class AuthService {
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedUnit = organizationalUnit.trim().toLowerCase();
 
+    /** Exige coincidencia exacta de propósito, rol, correo y unidad esperados. */
     if (
       payload.purpose !== 'SUPERVISOR_REGISTER' ||
       payload.role !== 'SUPERVISOR' ||
@@ -93,6 +102,7 @@ export class AuthService {
     }
   }
 
+  /** Emite token temporal de supervisor y envía correo de autorización. */
   async requestSupervisorToken(payload: SupervisorTokenRequest): Promise<SupervisorTokenResponse> {
     if (!payload.name?.trim() || !payload.email?.trim() || !payload.organizationalUnit?.trim()) {
       throw new HttpError(400, 'name, email y organizationalUnit son obligatorios para solicitar token de supervisor.');
@@ -131,6 +141,7 @@ export class AuthService {
     };
   }
 
+  /** Valida y decodifica token de acceso para middlewares de auth. */
   verifyAccessToken(token: string): { sub: number; email: string; role: RoleCode; unit: string } {
     try {
       const decoded = jwt.verify(token, env.jwt.secret);
@@ -140,6 +151,7 @@ export class AuthService {
       }
 
       const payload = decoded as Partial<AccessTokenPayload>;
+      /** Acepta sub numérico o string numérico para compatibilidad histórica. */
       const normalizedSub =
         typeof payload.sub === 'number'
           ? payload.sub
@@ -147,6 +159,7 @@ export class AuthService {
             ? Number(payload.sub)
             : NaN;
 
+      /** Valida claims obligatorios y dominio de rol antes de exponer el payload. */
       if (
         !Number.isInteger(normalizedSub) ||
         normalizedSub <= 0 ||
@@ -168,12 +181,14 @@ export class AuthService {
     }
   }
 
+  /** Registra usuario aplicando validaciones de negocio y flujo de estado. */
   async register(payload: RegisterRequest): Promise<AuthResponse> {
     const flow = new AuthFlowContext();
 
     try {
       flow.start();
 
+      /** Validaciones de campos requeridos y política mínima de contraseña. */
       if (!payload.name?.trim() || !payload.email?.trim() || !payload.password?.trim()) {
         throw new HttpError(400, 'name, email y password son obligatorios.');
       }
@@ -184,9 +199,11 @@ export class AuthService {
 
       this.ensurePasswordStrength(payload.password);
 
+      /** Normaliza rol de entrada para alinear variaciones del frontend. */
       const roleCode = this.roleStrategyContext.normalize(payload.role);
       flow.validate();
 
+      /** Evita duplicidad de cuenta por correo antes de crear el registro. */
       const existing = await this.authRepository.findUserByEmail(payload.email);
       if (existing) {
         throw new HttpError(409, 'El correo ya está registrado.');
@@ -202,9 +219,11 @@ export class AuthService {
           throw new HttpError(400, 'Para registrar un supervisor debes ingresar un token de autorización.');
         }
 
+        /** Refuerza que el token pertenezca al mismo correo y unidad solicitados. */
         this.validateSupervisorRegistrationToken(payload.supervisorToken, payload.email, payload.organizationalUnit);
       }
 
+      /** Persiste credenciales de forma segura y retorna token de sesión. */
       const passwordHash = await bcrypt.hash(payload.password, 12);
       const user = await this.authRepository.createUser(payload, passwordHash, refData.unitId, refData.roleId);
       const token = this.signAuthToken(user);
@@ -219,12 +238,14 @@ export class AuthService {
     }
   }
 
+  /** Autentica credenciales y retorna token con perfil público. */
   async login(payload: LoginRequest): Promise<AuthResponse> {
     const flow = new AuthFlowContext();
 
     try {
       flow.start();
 
+      /** Soporta login por identifier, username o email según el cliente. */
       const identifier = payload.identifier ?? payload.username ?? payload.email;
       if (!identifier?.trim() || !payload.password?.trim()) {
         throw new HttpError(400, 'identifier y password son obligatorios.');
@@ -237,6 +258,7 @@ export class AuthService {
         throw new HttpError(401, 'Credenciales inválidas.');
       }
 
+      /** Compara hash y emite JWT solo cuando credenciales son válidas. */
       const isValid = await bcrypt.compare(payload.password, dbUser.passwordHash);
       if (!isValid) {
         throw new HttpError(401, 'Credenciales inválidas.');
@@ -255,10 +277,12 @@ export class AuthService {
     }
   }
 
+  /** Lista permisos RBAC del usuario. */
   async getPermissions(userId: number): Promise<string[]> {
     return this.authRepository.findPermissionsByUserId(userId);
   }
 
+  /** Recupera perfil por id o falla con 404. */
   async getUserById(userId: number): Promise<AuthUser> {
     const user = await this.authRepository.findUserById(userId);
     if (!user) {
@@ -268,6 +292,7 @@ export class AuthService {
     return user;
   }
 
+  /** Actualiza nombre/correo validando unicidad de email. */
   async updateProfile(userId: number, payload: UpdateProfileRequest): Promise<AuthUser> {
     if (!payload.name?.trim() || !payload.email?.trim()) {
       throw new HttpError(400, 'name y email son obligatorios para actualizar el perfil.');
@@ -284,6 +309,7 @@ export class AuthService {
     });
   }
 
+  /** Actualiza contraseña persistiendo nuevo hash. */
   async updatePassword(userId: number, payload: UpdatePasswordRequest): Promise<void> {
     if (!payload.newPassword?.trim()) {
       throw new HttpError(400, 'newPassword es obligatoria.');

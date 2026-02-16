@@ -1,3 +1,7 @@
+/**
+ * - Estrategias para normalizar texto de rol de entrada a códigos internos.
+ * - Soporta variantes con/ sin acentos y alias en español/inglés.
+ */
 export type RoleCode = 'STANDARD' | 'SUPERVISOR';
 
 interface RoleNormalizationStrategy {
@@ -32,6 +36,7 @@ export class RoleNormalizationContext {
     this.strategies = [new StandardRoleStrategy(), new SupervisorRoleStrategy()];
   }
 
+  /** Normaliza el valor de rol recibido en payload y retorna código válido. */
   normalize(inputRole: string): RoleCode {
     const normalized = inputRole
       .trim()

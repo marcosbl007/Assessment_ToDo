@@ -1,3 +1,7 @@
+/**
+ * - Servicio de correo para envío de token supervisor.
+ * - Usa cuenta de prueba Ethereal en entorno actual.
+ */
 import nodemailer from 'nodemailer';
 
 interface SendSupervisorInviteEmailPayload {
@@ -21,6 +25,7 @@ export interface SendSupervisorInviteEmailResult {
 export class MailService {
   private transportContextPromise: Promise<MailTransportContext> | null = null;
 
+  /** Inicializa (lazy) y reutiliza transporter SMTP de Ethereal. */
   private getTransportContext(): Promise<MailTransportContext> {
     if (this.transportContextPromise) {
       return this.transportContextPromise;
@@ -50,6 +55,7 @@ export class MailService {
     return this.transportContextPromise;
   }
 
+  /** Envía correo de invitación para registro supervisor y retorna preview URL. */
   async sendSupervisorInviteEmail(payload: SendSupervisorInviteEmailPayload): Promise<SendSupervisorInviteEmailResult> {
     const transportContext = await this.getTransportContext();
 

@@ -1,3 +1,7 @@
+/**
+ * - Capa de acceso a datos para tareas, solicitudes y reportes.
+ * - Encapsula SQL y mapeos hacia tipos de dominio.
+ */
 import { pool } from '../../db/pool';
 import type {
   ApprovalStatus,
@@ -27,6 +31,7 @@ interface UserUnitRef {
 }
 
 export class TasksRepository {
+  /** Inserta una tarea aprobada directamente por supervisor. */
   async createApprovedTaskDirect(params: {
     organizationalUnitId: number;
     createdByUserId: number;
@@ -36,6 +41,7 @@ export class TasksRepository {
     dueDate: string | null;
     assignedToUserId: number | null;
   }): Promise<number> {
+    /** Inserción base de tarea con aprobador igual al creador. */
     const query = `
       INSERT INTO tasks (
         organizational_unit_id,
@@ -62,6 +68,7 @@ export class TasksRepository {
       params.createdByUserId,
     ]);
 
+    /** Convierte id textual de PostgreSQL a number para mantener contrato tipado. */
     const taskId = rows[0]?.id ? Number(rows[0].id) : NaN;
     if (!Number.isInteger(taskId) || taskId <= 0) {
       throw new Error('No se pudo crear la tarea aprobada de forma directa.');
@@ -70,7 +77,9 @@ export class TasksRepository {
     return taskId;
   }
 
+  /** Lista tareas públicas aprobadas por unidad; puede filtrar por asignado. */
   async findApprovedTasksByUnit(unitName: string, assignedToUserId?: number): Promise<PublicTask[]> {
+    /** Vista pública con campos normalizados para frontend. */
     const query = `
       SELECT
         id,
@@ -97,11 +106,13 @@ export class TasksRepository {
     return rows;
   }
 
+  /** Lista solicitudes del usuario autenticado en su unidad y estado opcional. */
   async findOwnChangeRequests(
     userId: number,
     unitName: string,
     status?: ApprovalStatus,
   ): Promise<PendingChangeRequest[]> {
+    /** Consulta base para historial propio de solicitudes. */
     const query = `
       SELECT
         r.id,
@@ -129,7 +140,9 @@ export class TasksRepository {
     return rows;
   }
 
+  /** Lista solicitudes pendientes de estándares para revisión de supervisor. */
   async findPendingChangeRequestsByUnit(unitName: string): Promise<PendingChangeRequest[]> {
+    /** Pendientes por unidad ordenadas por antigüedad. */
     const query = `
       SELECT
         r.id,
@@ -158,12 +171,14 @@ export class TasksRepository {
     return rows;
   }
 
+  /** Ejecuta el procedimiento que aprueba/rechaza y aplica cambios. */
   async applyChangeRequestDecision(
     requestId: number,
     supervisorUserId: number,
     decision: ApprovalDecision,
     reviewComment?: string,
   ): Promise<ChangeRequestDecisionResult> {
+    /** Wrapper del procedimiento almacenado de decisión. */
     const query = `
       SELECT
         change_request_id AS "changeRequestId",
@@ -187,6 +202,7 @@ export class TasksRepository {
     return result;
   }
 
+  /** Resuelve id de unidad por nombre (case-insensitive). */
   async findUnitIdByName(unitName: string): Promise<number | null> {
     const query = `
       SELECT id
@@ -199,6 +215,7 @@ export class TasksRepository {
     return rows[0]?.id ?? null;
   }
 
+  /** Obtiene tarea activa y su unidad propietaria. */
   async findTaskById(taskId: number): Promise<TaskUnitRef | null> {
     const query = `
       SELECT
@@ -214,6 +231,7 @@ export class TasksRepository {
     return rows[0] ?? null;
   }
 
+  /** Crea registro de solicitud para flujos CREATE/UPDATE/COMPLETE/DELETE. */
   async createChangeRequest(params: {
     taskId: number | null;
     organizationalUnitId: number;
@@ -222,6 +240,7 @@ export class TasksRepository {
     reason: string | null;
     payload: Record<string, unknown>;
   }): Promise<ChangeRequestCreated> {
+    /** Inserción de solicitud con payload flexible en JSONB. */
     const query = `
       INSERT INTO task_change_requests (
         task_id,
@@ -248,6 +267,7 @@ export class TasksRepository {
       JSON.stringify(params.payload),
     ]);
 
+    /** Garantiza que la inserción retornó metadata mínima de la solicitud. */
     const created = rows[0];
     if (!created) {
       throw new Error('No se pudo crear la solicitud de cambio.');
@@ -256,6 +276,7 @@ export class TasksRepository {
     return created;
   }
 
+  /** Obtiene usuarios activos de la unidad para selector de asignación. */
   async findUnitUsers(unitName: string): Promise<UnitUser[]> {
     const query = `
       SELECT
@@ -275,6 +296,7 @@ export class TasksRepository {
     return rows;
   }
 
+  /** Verifica que un usuario activo pertenezca a la unidad indicada. */
   async findUserInUnit(userId: number, unitId: number): Promise<UserUnitRef | null> {
     const query = `
       SELECT id
@@ -289,7 +311,9 @@ export class TasksRepository {
     return rows[0] ?? null;
   }
 
+  /** Construye snapshot agregado para tarjetas y gráficas del dashboard supervisor. */
   async getSupervisorReportSnapshot(unitName: string): Promise<SupervisorReportSnapshot> {
+    /** Resumen general de estados activos en la unidad. */
     const summaryQuery = `
       SELECT
         COUNT(*)::int AS total,
@@ -302,6 +326,7 @@ export class TasksRepository {
         AND lower(ou.name) = lower($1)
     `;
 
+    /** Conteo de solicitudes pendientes de aprobación. */
     const pendingApprovalsQuery = `
       SELECT COUNT(*)::int AS count
       FROM task_change_requests r
@@ -310,6 +335,7 @@ export class TasksRepository {
         AND lower(ou.name) = lower($1)
     `;
 
+    /** Conteo de solicitudes rechazadas para indicador de riesgo. */
     const rejectedCountQuery = `
       SELECT COUNT(*)::int AS count
       FROM task_change_requests r
@@ -318,6 +344,7 @@ export class TasksRepository {
         AND lower(ou.name) = lower($1)
     `;
 
+    /** Distribución de prioridades en tareas completadas. */
     const priorityQuery = `
       SELECT
         COUNT(*) FILTER (WHERE t.priority = 'HIGH')::int AS high,
@@ -330,6 +357,7 @@ export class TasksRepository {
         AND lower(ou.name) = lower($1)
     `;
 
+    /** Historial consolidado (solicitudes + altas directas de supervisor). */
     const historyQuery = `
       WITH request_history AS (
         SELECT
@@ -383,6 +411,7 @@ export class TasksRepository {
     `;
 
     const [summaryResult, pendingApprovalsResult, rejectedResult, priorityResult, historyResult] = await Promise.all([
+      /** Ejecuta consultas en paralelo para reducir latencia del dashboard. */
       pool.query<{ total: number; completed: number; inProgress: number; pending: number }>(summaryQuery, [unitName.trim()]),
       pool.query<{ count: number }>(pendingApprovalsQuery, [unitName.trim()]),
       pool.query<{ count: number }>(rejectedCountQuery, [unitName.trim()]),
@@ -390,11 +419,13 @@ export class TasksRepository {
       pool.query<ReportHistoryItem>(historyQuery, [unitName.trim()]),
     ]);
 
+    /** Aplica defaults defensivos para evitar null/undefined en serialización API. */
     const summary = summaryResult.rows[0] ?? { total: 0, completed: 0, inProgress: 0, pending: 0 };
     const pendingApprovals = pendingApprovalsResult.rows[0]?.count ?? 0;
     const rejected = rejectedResult.rows[0]?.count ?? 0;
     const priority = priorityResult.rows[0] ?? { high: 0, medium: 0, low: 0 };
 
+    /** Mapea campos agregados al shape consumido por tarjetas y gráficas. */
     const statusDistribution: TaskStatusDistribution = {
       completed: summary.completed,
       inProgress: summary.inProgress,
