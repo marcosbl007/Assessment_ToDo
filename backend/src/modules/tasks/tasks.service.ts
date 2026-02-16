@@ -2,6 +2,7 @@ import { HttpError } from '../../shared/errors/HttpError';
 import type { RoleCode } from '../auth/application/strategies/role.strategy';
 import { TasksRepository } from './tasks.repository';
 import type {
+  ApprovalStatus,
   ChangeRequestCreated,
   ChangeRequestDecisionInput,
   ChangeRequestDecisionResult,
@@ -23,6 +24,8 @@ export class TasksService {
   private readonly allowedPriorities: TaskPriority[] = ['LOW', 'MEDIUM', 'HIGH'];
 
   private readonly allowedStatuses: TaskStatus[] = ['PENDING', 'IN_PROGRESS', 'COMPLETED'];
+
+  private readonly allowedApprovalStatuses: ApprovalStatus[] = ['PENDING', 'APPROVED', 'REJECTED'];
 
   private assertValidPriority(priority?: string): void {
     if (!priority) {
@@ -71,8 +74,46 @@ export class TasksService {
     }
   }
 
-  async getApprovedTasks(): Promise<PublicTask[]> {
-    return this.tasksRepository.findApprovedTasks();
+  private async autoApproveIfSupervisor(
+    requesterRole: RoleCode,
+    requesterUserId: number,
+    requestId: number,
+  ): Promise<void> {
+    if (requesterRole !== 'SUPERVISOR') {
+      return;
+    }
+
+    await this.tasksRepository.applyChangeRequestDecision(
+      requestId,
+      requesterUserId,
+      'APPROVED',
+      'Autoaprobada por supervisor al momento de registrar el cambio.',
+    );
+  }
+
+  async getApprovedTasks(unitName: string, role: RoleCode, userId: number): Promise<PublicTask[]> {
+    if (!unitName?.trim()) {
+      throw new HttpError(400, 'No se pudo determinar la unidad organizacional del usuario.');
+    }
+
+    const assignedFilter = role === 'STANDARD' ? userId : undefined;
+    return this.tasksRepository.findApprovedTasksByUnit(unitName, assignedFilter);
+  }
+
+  async getOwnChangeRequests(
+    userId: number,
+    unitName: string,
+    status?: ApprovalStatus,
+  ): Promise<PendingChangeRequest[]> {
+    if (!unitName?.trim()) {
+      throw new HttpError(400, 'No se pudo determinar la unidad organizacional del usuario.');
+    }
+
+    if (status && !this.allowedApprovalStatuses.includes(status)) {
+      throw new HttpError(400, 'status inválido. Usa PENDING, APPROVED o REJECTED.');
+    }
+
+    return this.tasksRepository.findOwnChangeRequests(userId, unitName, status);
   }
 
   async getPendingRequestsForSupervisor(unitName: string, role: RoleCode): Promise<PendingChangeRequest[]> {
@@ -131,6 +172,7 @@ export class TasksService {
 
   async requestTaskCreation(
     userId: number,
+    role: RoleCode,
     unitName: string,
     payload: CreateTaskRequestInput,
   ): Promise<ChangeRequestCreated> {
@@ -149,7 +191,26 @@ export class TasksService {
       await this.ensureAssigneeBelongsToUnit(payload.assignedToUserId, unitId);
     }
 
-    return this.tasksRepository.createChangeRequest({
+    if (role === 'SUPERVISOR') {
+      const createdTaskId = await this.tasksRepository.createApprovedTaskDirect({
+        organizationalUnitId: unitId,
+        createdByUserId: userId,
+        title: payload.title.trim(),
+        description: payload.description?.trim() || null,
+        priority: payload.priority ?? 'MEDIUM',
+        dueDate: payload.dueDate ?? null,
+        assignedToUserId: payload.assignedToUserId ?? null,
+      });
+
+      return {
+        id: createdTaskId,
+        changeType: 'CREATE',
+        status: 'APPROVED',
+        requestedAt: new Date().toISOString(),
+      };
+    }
+
+    const request = await this.tasksRepository.createChangeRequest({
       taskId: null,
       organizationalUnitId: unitId,
       requestedByUserId: userId,
@@ -163,10 +224,13 @@ export class TasksService {
         assignedToUserId: payload.assignedToUserId ?? null,
       },
     });
+
+    return request;
   }
 
   async requestTaskUpdate(
     userId: number,
+    role: RoleCode,
     unitName: string,
     taskId: number,
     payload: UpdateTaskRequestInput,
@@ -200,7 +264,7 @@ export class TasksService {
       await this.ensureAssigneeBelongsToUnit(payload.assignedToUserId, unitId);
     }
 
-    return this.tasksRepository.createChangeRequest({
+    const request = await this.tasksRepository.createChangeRequest({
       taskId,
       organizationalUnitId: unitId,
       requestedByUserId: userId,
@@ -215,10 +279,14 @@ export class TasksService {
         ...(payload.dueDate !== undefined ? { dueDate: payload.dueDate } : {}),
       },
     });
+
+    await this.autoApproveIfSupervisor(role, userId, request.id);
+    return role === 'SUPERVISOR' ? { ...request, status: 'APPROVED' } : request;
   }
 
   async requestTaskCompletion(
     userId: number,
+    role: RoleCode,
     unitName: string,
     taskId: number,
     payload: CompleteTaskRequestInput,
@@ -230,7 +298,7 @@ export class TasksService {
     const unitId = await this.resolveUserUnitId(unitName);
     await this.ensureTaskBelongsToUnit(taskId, unitId);
 
-    return this.tasksRepository.createChangeRequest({
+    const request = await this.tasksRepository.createChangeRequest({
       taskId,
       organizationalUnitId: unitId,
       requestedByUserId: userId,
@@ -238,10 +306,14 @@ export class TasksService {
       reason: payload.reason?.trim() || null,
       payload: {},
     });
+
+    await this.autoApproveIfSupervisor(role, userId, request.id);
+    return role === 'SUPERVISOR' ? { ...request, status: 'APPROVED' } : request;
   }
 
   async requestTaskDeletion(
     userId: number,
+    role: RoleCode,
     unitName: string,
     taskId: number,
     payload: DeleteTaskRequestInput,
@@ -253,7 +325,7 @@ export class TasksService {
     const unitId = await this.resolveUserUnitId(unitName);
     await this.ensureTaskBelongsToUnit(taskId, unitId);
 
-    return this.tasksRepository.createChangeRequest({
+    const request = await this.tasksRepository.createChangeRequest({
       taskId,
       organizationalUnitId: unitId,
       requestedByUserId: userId,
@@ -261,5 +333,8 @@ export class TasksService {
       reason: payload.reason?.trim() || null,
       payload: {},
     });
+
+    await this.autoApproveIfSupervisor(role, userId, request.id);
+    return role === 'SUPERVISOR' ? { ...request, status: 'APPROVED' } : request;
   }
 }

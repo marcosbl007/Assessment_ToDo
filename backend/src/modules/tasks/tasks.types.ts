@@ -1,4 +1,5 @@
 export type ApprovalDecision = 'APPROVED' | 'REJECTED';
+export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH';
 
@@ -23,7 +24,7 @@ export interface PendingChangeRequest {
   id: number;
   taskId: number | null;
   changeType: 'CREATE' | 'UPDATE' | 'COMPLETE' | 'DELETE';
-  status: 'PENDING';
+  status: ApprovalStatus;
   reason: string | null;
   payload: Record<string, unknown>;
   requestedAt: string;
@@ -74,7 +75,7 @@ export interface DeleteTaskRequestInput {
 export interface ChangeRequestCreated {
   id: number;
   changeType: 'CREATE' | 'UPDATE' | 'COMPLETE' | 'DELETE';
-  status: 'PENDING';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
   requestedAt: string;
 }
 
@@ -102,7 +103,7 @@ export interface ReportHistoryItem {
   id: number;
   taskTitle: string;
   priority: 'HIGH' | 'MEDIUM' | 'LOW';
-  status: 'COMPLETED' | 'IN_PROGRESS' | 'REJECTED';
+  status: 'PENDING' | 'COMPLETED' | 'REJECTED';
   endDate: string;
 }
 

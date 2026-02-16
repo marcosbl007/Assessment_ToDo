@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { FaCheckCircle, FaTimes, FaExclamationTriangle } from 'react-icons/fa';
 import {
   completeTaskRequest,
   createTaskRequest,
@@ -65,6 +66,7 @@ export const SupervisorDashboardPage = ({ user, onLogout }: SupervisorDashboardP
   const [priorityFilter, setPriorityFilter] = useState<TaskItem['priority'] | null>(null);
   const [sortBy, setSortBy] = useState<TaskSortBy>('new');
   const [selectedAssignees, setSelectedAssignees] = useState<Record<number, string>>({});
+  const [selectedDueDates, setSelectedDueDates] = useState<Record<number, string>>({});
   const [creationForm, setCreationForm] = useState<TaskCreationForm>({
     title: '',
     description: '',
@@ -78,21 +80,58 @@ export const SupervisorDashboardPage = ({ user, onLogout }: SupervisorDashboardP
     unidad: user.unit,
   });
 
+  const currentUserId = Number(user.id);
+  const hasValidCurrentUserId = Number.isInteger(currentUserId) && currentUserId > 0;
+
   const notifications = useMemo(
-    () =>
-      pendingRequests.map((request) => ({
-        id: request.id,
-        title: `Solicitud ${changeTypeLabelMap[request.changeType]} pendiente`,
-        detail: `${request.requestedBy} solicitó revisión para ${request.currentTaskTitle ?? 'nueva tarea'}`,
-        date: formatDate(request.requestedAt),
-      })),
-    [pendingRequests],
+    () => {
+      const pendingNotifications = pendingRequests.map((request) => {
+        const sortTime = new Date(request.requestedAt).getTime();
+        return {
+          id: request.id,
+          title: `Solicitud ${changeTypeLabelMap[request.changeType]} pendiente`,
+          detail: `${request.requestedBy} solicitó revisión para ${request.currentTaskTitle ?? 'nueva tarea'}`,
+          date: formatDate(request.requestedAt),
+          sortTime: Number.isNaN(sortTime) ? 0 : sortTime,
+        };
+      });
+
+      const assignedTaskNotifications = tasks
+        .filter((task) => {
+          if (!hasValidCurrentUserId) {
+            return false;
+          }
+
+          const assignedUserId = Number(task.assignedToUserId);
+          return Number.isInteger(assignedUserId) && assignedUserId === currentUserId;
+        })
+        .map((task) => {
+          const sortTime = new Date(task.createdAt).getTime();
+          return {
+            id: Number(`9${task.id}`),
+            title: 'Nueva tarea asignada',
+            detail: `${task.createdBy} te asignó la tarea ${task.title}`,
+            date: formatDate(task.createdAt),
+            sortTime: Number.isNaN(sortTime) ? 0 : sortTime,
+          };
+        });
+
+      return [...assignedTaskNotifications, ...pendingNotifications]
+        .sort((first, second) => second.sortTime - first.sortTime)
+        .map(({ sortTime: _sortTime, ...notification }) => notification)
+        .slice(0, 20);
+    },
+    [pendingRequests, tasks, hasValidCurrentUserId, currentUserId],
   );
 
   const filteredTasks = useMemo(() => {
     const normalized = searchText.trim().toLowerCase();
 
     const base = tasks.filter((task) => {
+      if (task.status === 'COMPLETED') {
+        return false;
+      }
+
       const matchesSearch =
         !normalized ||
         String(task.id).includes(normalized) ||
@@ -221,22 +260,31 @@ export const SupervisorDashboardPage = ({ user, onLogout }: SupervisorDashboardP
         priority: creationForm.priority,
         dueDate: creationForm.dueDate || undefined,
         assignedToUserId: Number(creationForm.assignedToUserId),
-        reason: `Solicitud creada para asignar a usuario ${creationForm.assignedToUserId}`,
+        reason: `Creación directa por supervisor para asignar a usuario ${creationForm.assignedToUserId}`,
       });
 
-      setFeedback('Solicitud de creación enviada correctamente.');
+      setFeedback('Tarea creada correctamente.');
       setCreationForm({ title: '', description: '', priority: 'MEDIUM', dueDate: '', assignedToUserId: '' });
       setIsCreatingTask(false);
       await loadSupervisorData();
     } catch (submitError: unknown) {
-      setError(submitError instanceof Error ? submitError.message : 'No se pudo crear la solicitud.');
+      setError(submitError instanceof Error ? submitError.message : 'No se pudo crear la tarea.');
     }
   };
 
   const handleAssignTask = async (taskId: number) => {
     const selectedUser = selectedAssignees[taskId];
-    if (!selectedUser) {
-      setError('Selecciona un usuario antes de solicitar asignación.');
+    const selectedDueDate = selectedDueDates[taskId];
+    const task = tasks.find((currentTask) => currentTask.id === taskId);
+
+    const currentAssignee = task?.assignedToUserId != null ? Number(task.assignedToUserId) : null;
+    const nextAssignee = selectedUser ? Number(selectedUser) : null;
+    const currentDueDate = task?.dueDate ? task.dueDate.slice(0, 10) : '';
+    const hasAssigneeChange = selectedUser && Number.isInteger(nextAssignee) && nextAssignee !== currentAssignee;
+    const hasDueDateChange = selectedDueDate !== undefined && selectedDueDate !== currentDueDate;
+
+    if (!hasAssigneeChange && !hasDueDateChange) {
+      setError('Realiza al menos un cambio en fecha objetivo o reasignación.');
       return;
     }
 
@@ -245,14 +293,25 @@ export const SupervisorDashboardPage = ({ user, onLogout }: SupervisorDashboardP
 
     try {
       await updateTaskRequest(taskId, {
-        assignedToUserId: Number(selectedUser),
-        reason: 'Asignación solicitada por supervisor',
+        ...(hasAssigneeChange ? { assignedToUserId: Number(selectedUser) } : {}),
+        ...(hasDueDateChange ? { dueDate: selectedDueDate || undefined } : {}),
+        reason: 'Actualización directa por supervisor',
       });
 
-      setFeedback('Solicitud de asignación enviada para aprobación.');
+      setFeedback('Tarea actualizada correctamente.');
+      setSelectedAssignees((state) => {
+        const nextState = { ...state };
+        delete nextState[taskId];
+        return nextState;
+      });
+      setSelectedDueDates((state) => {
+        const nextState = { ...state };
+        delete nextState[taskId];
+        return nextState;
+      });
       await loadSupervisorData();
     } catch (assignError: unknown) {
-      setError(assignError instanceof Error ? assignError.message : 'No se pudo solicitar la asignación.');
+      setError(assignError instanceof Error ? assignError.message : 'No se pudo actualizar la tarea.');
     }
   };
 
@@ -261,11 +320,11 @@ export const SupervisorDashboardPage = ({ user, onLogout }: SupervisorDashboardP
     setFeedback(null);
 
     try {
-      await completeTaskRequest(taskId, 'Solicitud de completado enviada por supervisor');
-      setFeedback('Solicitud de completado enviada para aprobación.');
+      await completeTaskRequest(taskId, 'Completado directo por supervisor');
+      setFeedback('Tarea marcada como completada correctamente.');
       await loadSupervisorData();
     } catch (requestError: unknown) {
-      setError(requestError instanceof Error ? requestError.message : 'No se pudo solicitar el completado.');
+      setError(requestError instanceof Error ? requestError.message : 'No se pudo completar la tarea.');
     }
   };
 
@@ -274,11 +333,11 @@ export const SupervisorDashboardPage = ({ user, onLogout }: SupervisorDashboardP
     setFeedback(null);
 
     try {
-      await deleteTaskRequest(taskId, 'Solicitud de eliminación enviada por supervisor');
-      setFeedback('Solicitud de eliminación enviada para aprobación.');
+      await deleteTaskRequest(taskId, 'Eliminación directa por supervisor');
+      setFeedback('Tarea eliminada correctamente.');
       await loadSupervisorData();
     } catch (requestError: unknown) {
-      setError(requestError instanceof Error ? requestError.message : 'No se pudo solicitar la eliminación.');
+      setError(requestError instanceof Error ? requestError.message : 'No se pudo eliminar la tarea.');
     }
   };
 
@@ -334,7 +393,7 @@ export const SupervisorDashboardPage = ({ user, onLogout }: SupervisorDashboardP
       <div className="min-h-screen w-full overflow-x-hidden">
         <SupervisorSidebar
           activeSection={activeSection}
-          pendingCount={pendingRequests.length}
+          pendingCount={notifications.length}
           onSectionChange={setActiveSection}
           onLogout={onLogout}
         />
@@ -369,12 +428,36 @@ export const SupervisorDashboardPage = ({ user, onLogout }: SupervisorDashboardP
                 />
               )}
 
-              {error && (
-                <div className="mb-3 rounded-md border border-red-400/70 px-3 py-2 text-sm text-red-200">{error}</div>
-              )}
-              {feedback && (
-                <div className="mb-3 rounded-md border border-[var(--dorado)]/40 bg-[var(--dorado)]/10 px-3 py-2 text-sm text-[var(--blanco)]">
-                  {feedback}
+              {(feedback || error) && (
+                <div className="pointer-events-none fixed right-5 top-24 z-[120]">
+                  <div
+                    className={`pointer-events-auto flex max-w-[420px] items-start gap-3 rounded-xl border px-4 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur-sm ${
+                      error
+                        ? 'border-[#E77F72]/45 bg-[#2D1D1D]/90 text-[#FECACA]'
+                        : 'border-[var(--dorado)]/45 bg-[#15161B]/95 text-[var(--blanco)]'
+                    }`}
+                  >
+                    <span
+                      className={`mt-0.5 text-base ${error ? 'text-[#E77F72]' : 'text-[var(--dorado)]'}`}
+                      aria-hidden="true"
+                    >
+                      {error ? <FaExclamationTriangle /> : <FaCheckCircle />}
+                    </span>
+
+                    <div className="min-w-0 flex-1 text-sm leading-relaxed">{error ?? feedback}</div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFeedback(null);
+                        setError(null);
+                      }}
+                      className="text-[var(--blanco)]/65 transition hover:text-[var(--blanco)]"
+                      aria-label="Cerrar mensaje"
+                    >
+                      <FaTimes />
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -386,11 +469,18 @@ export const SupervisorDashboardPage = ({ user, onLogout }: SupervisorDashboardP
                     <SupervisorDashboardHomePage
                       tasks={filteredTasks}
                       selectedAssignees={selectedAssignees}
+                      selectedDueDates={selectedDueDates}
                       unitUsers={unitUsers}
                       onAssigneeChange={(taskId, userId) =>
                         setSelectedAssignees((state) => ({
                           ...state,
                           [taskId]: userId,
+                        }))
+                      }
+                      onDueDateChange={(taskId, dueDate) =>
+                        setSelectedDueDates((state) => ({
+                          ...state,
+                          [taskId]: dueDate,
                         }))
                       }
                       onAssignTask={(taskId) => void handleAssignTask(taskId)}

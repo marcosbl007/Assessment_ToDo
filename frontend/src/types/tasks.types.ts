@@ -23,7 +23,7 @@ export interface PendingTaskChangeRequest {
   id: number;
   taskId: number | null;
   changeType: 'CREATE' | 'UPDATE' | 'COMPLETE' | 'DELETE';
-  status: 'PENDING';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
   reason: string | null;
   payload: Record<string, unknown>;
   requestedAt: string;
@@ -68,7 +68,7 @@ export interface SupervisorReportHistoryItem {
   id: number;
   taskTitle: string;
   priority: 'HIGH' | 'MEDIUM' | 'LOW';
-  status: 'COMPLETED' | 'IN_PROGRESS' | 'REJECTED';
+  status: 'PENDING' | 'COMPLETED' | 'REJECTED';
   endDate: string;
 }
 

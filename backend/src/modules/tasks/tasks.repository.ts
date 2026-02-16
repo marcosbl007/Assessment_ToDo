@@ -1,5 +1,6 @@
 import { pool } from '../../db/pool';
 import type {
+  ApprovalStatus,
   ApprovalDecision,
   ChangeRequestCreated,
   ChangeRequestDecisionResult,
@@ -26,7 +27,50 @@ interface UserUnitRef {
 }
 
 export class TasksRepository {
-  async findApprovedTasks(): Promise<PublicTask[]> {
+  async createApprovedTaskDirect(params: {
+    organizationalUnitId: number;
+    createdByUserId: number;
+    title: string;
+    description: string | null;
+    priority: 'LOW' | 'MEDIUM' | 'HIGH';
+    dueDate: string | null;
+    assignedToUserId: number | null;
+  }): Promise<number> {
+    const query = `
+      INSERT INTO tasks (
+        organizational_unit_id,
+        title,
+        description,
+        status,
+        priority,
+        due_date,
+        assigned_to_user_id,
+        created_by_user_id,
+        approved_by_user_id
+      )
+      VALUES ($1, $2, $3, 'PENDING', $4::task_priority, $5::date, $6, $7, $7)
+      RETURNING id
+    `;
+
+    const { rows } = await pool.query<{ id: string }>(query, [
+      params.organizationalUnitId,
+      params.title,
+      params.description,
+      params.priority,
+      params.dueDate,
+      params.assignedToUserId,
+      params.createdByUserId,
+    ]);
+
+    const taskId = rows[0]?.id ? Number(rows[0].id) : NaN;
+    if (!Number.isInteger(taskId) || taskId <= 0) {
+      throw new Error('No se pudo crear la tarea aprobada de forma directa.');
+    }
+
+    return taskId;
+  }
+
+  async findApprovedTasksByUnit(unitName: string, assignedToUserId?: number): Promise<PublicTask[]> {
     const query = `
       SELECT
         id,
@@ -44,10 +88,44 @@ export class TasksRepository {
         assigned_to_user_id AS "assignedToUserId",
         assigned_to AS "assignedTo"
       FROM vw_tasks_public
+      WHERE lower(organizational_unit_name) = lower($1)
+        AND ($2::bigint IS NULL OR assigned_to_user_id = $2::bigint)
       ORDER BY created_at DESC
     `;
 
-    const { rows } = await pool.query<PublicTask>(query);
+    const { rows } = await pool.query<PublicTask>(query, [unitName.trim(), assignedToUserId ?? null]);
+    return rows;
+  }
+
+  async findOwnChangeRequests(
+    userId: number,
+    unitName: string,
+    status?: ApprovalStatus,
+  ): Promise<PendingChangeRequest[]> {
+    const query = `
+      SELECT
+        r.id,
+        r.task_id AS "taskId",
+        r.change_type AS "changeType",
+        r.status,
+        r.reason,
+        r.payload,
+        r.requested_at AS "requestedAt",
+        requester.full_name AS "requestedBy",
+        ou.code AS "organizationalUnitCode",
+        ou.name AS "organizationalUnitName",
+        COALESCE(t.title, r.payload ->> 'title') AS "currentTaskTitle"
+      FROM task_change_requests r
+      INNER JOIN organizational_units ou ON ou.id = r.organizational_unit_id
+      INNER JOIN users requester ON requester.id = r.requested_by_user_id
+      LEFT JOIN tasks t ON t.id = r.task_id
+      WHERE r.requested_by_user_id = $1
+        AND lower(ou.name) = lower($2)
+        AND ($3::approval_status IS NULL OR r.status = $3::approval_status)
+      ORDER BY r.requested_at DESC
+    `;
+
+    const { rows } = await pool.query<PendingChangeRequest>(query, [userId, unitName.trim(), status ?? null]);
     return rows;
   }
 
@@ -68,8 +146,10 @@ export class TasksRepository {
       FROM task_change_requests r
       INNER JOIN organizational_units ou ON ou.id = r.organizational_unit_id
       INNER JOIN users requester ON requester.id = r.requested_by_user_id
+      INNER JOIN roles requester_role ON requester_role.id = requester.role_id
       LEFT JOIN tasks t ON t.id = r.task_id
       WHERE r.status = 'PENDING'
+        AND requester_role.code = 'STANDARD'
         AND lower(ou.name) = lower($1)
       ORDER BY r.requested_at ASC
     `;
@@ -214,8 +294,8 @@ export class TasksRepository {
       SELECT
         COUNT(*)::int AS total,
         COUNT(*) FILTER (WHERE t.status = 'COMPLETED')::int AS "completed",
-        COUNT(*) FILTER (WHERE t.status = 'IN_PROGRESS')::int AS "inProgress",
-        COUNT(*) FILTER (WHERE t.status = 'PENDING')::int AS "pending"
+        0::int AS "inProgress",
+        COUNT(*) FILTER (WHERE t.status IN ('PENDING', 'IN_PROGRESS'))::int AS "pending"
       FROM tasks t
       INNER JOIN organizational_units ou ON ou.id = t.organizational_unit_id
       WHERE t.is_active = TRUE
@@ -251,23 +331,54 @@ export class TasksRepository {
     `;
 
     const historyQuery = `
-      SELECT
-        COALESCE(r.task_id, t.id)::bigint AS id,
-        COALESCE(t.title, r.payload ->> 'title', 'Tarea sin título') AS "taskTitle",
-        COALESCE(t.priority::text, (r.payload ->> 'priority'), 'MEDIUM')::text AS priority,
-        CASE
-          WHEN r.status = 'REJECTED' THEN 'REJECTED'
-          WHEN t.status = 'COMPLETED' THEN 'COMPLETED'
-          WHEN t.status = 'IN_PROGRESS' THEN 'IN_PROGRESS'
-          ELSE 'IN_PROGRESS'
-        END::text AS status,
-        COALESCE(r.reviewed_at, t.updated_at, t.created_at)::timestamptz AS "endDate"
-      FROM task_change_requests r
-      LEFT JOIN tasks t ON t.id = r.task_id
-      INNER JOIN organizational_units ou ON ou.id = r.organizational_unit_id
-      WHERE r.status IN ('APPROVED', 'REJECTED')
-        AND lower(ou.name) = lower($1)
-      ORDER BY COALESCE(r.reviewed_at, t.updated_at, t.created_at) DESC
+      WITH request_history AS (
+        SELECT
+          COALESCE(r.task_id, t.id)::bigint AS id,
+          COALESCE(t.title, r.payload ->> 'title', 'Tarea sin título') AS "taskTitle",
+          COALESCE(t.priority::text, (r.payload ->> 'priority'), 'MEDIUM')::text AS priority,
+          CASE
+            WHEN r.status = 'REJECTED' THEN 'REJECTED'
+            WHEN t.status = 'COMPLETED' THEN 'COMPLETED'
+            ELSE 'PENDING'
+          END::text AS status,
+          COALESCE(r.reviewed_at, t.updated_at, t.created_at)::timestamptz AS "endDate"
+        FROM task_change_requests r
+        LEFT JOIN tasks t ON t.id = r.task_id
+        INNER JOIN organizational_units ou ON ou.id = r.organizational_unit_id
+        WHERE r.status IN ('APPROVED', 'REJECTED')
+          AND lower(ou.name) = lower($1)
+      ),
+      direct_supervisor_creations AS (
+        SELECT
+          t.id::bigint AS id,
+          t.title AS "taskTitle",
+          t.priority::text AS priority,
+          CASE
+            WHEN t.status = 'COMPLETED' THEN 'COMPLETED'
+            ELSE 'PENDING'
+          END::text AS status,
+          t.created_at::timestamptz AS "endDate"
+        FROM tasks t
+        INNER JOIN organizational_units ou ON ou.id = t.organizational_unit_id
+        INNER JOIN users creator ON creator.id = t.created_by_user_id
+        INNER JOIN roles creator_role ON creator_role.id = creator.role_id
+        WHERE lower(ou.name) = lower($1)
+          AND creator_role.code = 'SUPERVISOR'
+          AND t.approved_by_user_id = t.created_by_user_id
+          AND NOT EXISTS (
+            SELECT 1
+            FROM task_change_requests r
+            WHERE r.change_type = 'CREATE'
+              AND r.task_id = t.id
+          )
+      )
+      SELECT *
+      FROM (
+        SELECT * FROM request_history
+        UNION ALL
+        SELECT * FROM direct_supervisor_creations
+      ) AS history
+      ORDER BY "endDate" DESC
       LIMIT 12
     `;
 

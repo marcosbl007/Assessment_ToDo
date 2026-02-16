@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { TaskItem, UnitUser } from '../../../types';
 import { PaginationControls } from '../components/molecules/PaginationControls';
 import { formatDate } from '../utils';
@@ -8,8 +9,11 @@ const ITEMS_PER_PAGE = 8;
 interface SupervisorDashboardHomePageProps {
   tasks: TaskItem[];
   selectedAssignees: Record<number, string>;
+  selectedDueDates: Record<number, string>;
   unitUsers: UnitUser[];
+  isRequestMode?: boolean;
   onAssigneeChange: (taskId: number, userId: string) => void;
+  onDueDateChange: (taskId: number, dueDate: string) => void;
   onAssignTask: (taskId: number) => void;
   onCompleteTask: (taskId: number) => void;
   onDeleteTask: (taskId: number) => void;
@@ -18,8 +22,11 @@ interface SupervisorDashboardHomePageProps {
 export const SupervisorDashboardHomePage = ({
   tasks,
   selectedAssignees,
+  selectedDueDates,
   unitUsers,
+  isRequestMode = false,
   onAssigneeChange,
+  onDueDateChange,
   onAssignTask,
   onCompleteTask,
   onDeleteTask,
@@ -150,9 +157,11 @@ export const SupervisorDashboardHomePage = ({
 
       <PaginationControls currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
 
-      {selectedTask && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 px-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-2xl overflow-hidden rounded-lg bg-[#15161B] p-5 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] md:p-6">
+      {selectedTask &&
+        createPortal(
+          <div className="fixed inset-0 z-[220] overflow-y-auto bg-black/50 px-3 py-4 backdrop-blur-sm sm:px-4 sm:py-6">
+            <div className="flex min-h-full items-start justify-center sm:items-center">
+              <div className="relative mt-12 w-full max-w-2xl overflow-hidden rounded-lg bg-[#15161B] p-5 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] sm:mt-0 md:p-6">
             <div
               className="pointer-events-none absolute top-0 left-0 h-32 w-full"
               style={{
@@ -168,7 +177,7 @@ export const SupervisorDashboardHomePage = ({
               }}
             />
 
-            <div className="relative z-10">
+                <div className="relative z-10">
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold text-[var(--blanco)]/70">Tarea #{selectedTask.id}</p>
@@ -220,7 +229,9 @@ export const SupervisorDashboardHomePage = ({
                   </p>
                 </div>
                 <div className="rounded-lg bg-black/20 p-3 sm:col-span-2">
-                  <p className="mb-2 text-[11px] text-[var(--blanco)]/55">Solicitar reasignación</p>
+                  <p className="mb-2 text-[11px] text-[var(--blanco)]/55">
+                    {isRequestMode ? 'Solicitar reasignación' : 'Reasignar tarea'}
+                  </p>
                   <select
                     value={selectedAssignees[selectedTask.id] ?? String(selectedTask.assignedToUserId ?? '')}
                     onChange={(event) => onAssigneeChange(selectedTask.id, event.target.value)}
@@ -234,6 +245,17 @@ export const SupervisorDashboardHomePage = ({
                     ))}
                   </select>
                 </div>
+                <div className="rounded-lg bg-black/20 p-3 sm:col-span-2">
+                  <p className="mb-2 text-[11px] text-[var(--blanco)]/55">
+                    {isRequestMode ? 'Solicitar actualización de fecha' : 'Editar fecha objetivo'}
+                  </p>
+                  <input
+                    type="date"
+                    value={selectedDueDates[selectedTask.id] ?? (selectedTask.dueDate ? selectedTask.dueDate.slice(0, 10) : '')}
+                    onChange={(event) => onDueDateChange(selectedTask.id, event.target.value)}
+                    className="w-full rounded-md border border-white/15 bg-transparent px-3 py-2 text-xs text-[var(--blanco)] outline-none focus:border-[var(--dorado)]/45"
+                  />
+                </div>
               </div>
 
               <div className="mt-5 flex flex-wrap justify-center gap-3">
@@ -245,7 +267,7 @@ export const SupervisorDashboardHomePage = ({
                   }}
                   className="rounded-lg border border-red-400/35 px-4 py-2 text-sm font-semibold text-red-300"
                 >
-                  Solicitar eliminación
+                  {isRequestMode ? 'Solicitar eliminación' : 'Eliminar tarea'}
                 </button>
                 <button
                   type="button"
@@ -256,7 +278,7 @@ export const SupervisorDashboardHomePage = ({
                   disabled={selectedTask.status === 'COMPLETED'}
                   className="rounded-lg border border-[#9BE2B3]/35 px-4 py-2 text-sm font-semibold text-[#9BE2B3] disabled:cursor-not-allowed disabled:opacity-45"
                 >
-                  Solicitar completado
+                  {isRequestMode ? 'Solicitar aprobación' : 'Completar tarea'}
                 </button>
                 <button
                   type="button"
@@ -266,13 +288,15 @@ export const SupervisorDashboardHomePage = ({
                   }}
                   className="rounded-lg bg-[var(--dorado)] px-4 py-2 text-sm font-semibold text-[var(--blanco)]"
                 >
-                  Solicitar asignación
+                  {isRequestMode ? 'Solicitar actualización' : 'Actualizar tarea'}
                 </button>
               </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 };

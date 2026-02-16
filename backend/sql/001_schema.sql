@@ -136,6 +136,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_active ON tasks(is_active);
 CREATE INDEX IF NOT EXISTS idx_tcr_status_unit ON task_change_requests(status, organizational_unit_id);
 CREATE INDEX IF NOT EXISTS idx_tcr_requested_at ON task_change_requests(requested_at DESC);
 CREATE INDEX IF NOT EXISTS idx_tcr_task_id ON task_change_requests(task_id);
+CREATE INDEX IF NOT EXISTS idx_tcr_requested_by_status ON task_change_requests(requested_by_user_id, status, requested_at DESC);
 
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS TRIGGER AS $$

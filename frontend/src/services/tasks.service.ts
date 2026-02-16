@@ -66,6 +66,23 @@ export async function getPendingRequestsRequest(): Promise<PendingTaskChangeRequ
   return payload.requests;
 }
 
+export async function getOwnChangeRequestsRequest(
+  status?: PendingTaskChangeRequest['status'],
+): Promise<PendingTaskChangeRequest[]> {
+  const query = status ? `?status=${encodeURIComponent(status)}` : '';
+  const response = await fetch(`${API_BASE_URL}/api/tasks/change-requests/mine${query}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    return parseError(response);
+  }
+
+  const payload = (await response.json()) as { requests: PendingTaskChangeRequest[] };
+  return payload.requests;
+}
+
 export async function getUnitUsersRequest(): Promise<UnitUser[]> {
   const response = await fetch(`${API_BASE_URL}/api/tasks/unit-users`, {
     method: 'GET',

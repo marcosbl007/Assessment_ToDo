@@ -1,9 +1,12 @@
-import { FaCheckCircle, FaClock, FaTasks } from 'react-icons/fa';
+import { useEffect, useMemo, useState } from 'react';
+import { FaCheckCircle, FaChevronLeft, FaChevronRight, FaClock, FaTasks } from 'react-icons/fa';
 import type { SupervisorReportSnapshot } from '../../../types';
 
 interface SupervisorReportsPageProps {
   reportData: SupervisorReportSnapshot;
 }
+
+const HISTORY_ITEMS_PER_PAGE = 5;
 
 type RingSegment = {
   label: string;
@@ -17,9 +20,9 @@ const priorityBadgeClass: Record<'HIGH' | 'MEDIUM' | 'LOW', string> = {
   LOW: 'bg-[#1F2A1C] text-[#95E28F]',
 };
 
-const statusBadgeClass: Record<'COMPLETED' | 'IN_PROGRESS' | 'REJECTED', string> = {
+const statusBadgeClass: Record<'PENDING' | 'COMPLETED' | 'REJECTED', string> = {
+  PENDING: 'bg-[#2A2418] text-[#D6B567]',
   COMPLETED: 'bg-[#1B2E2A] text-[#9BE2B3]',
-  IN_PROGRESS: 'bg-[#1B2833] text-[#8ED0FF]',
   REJECTED: 'bg-[#2D1D1D] text-[#E99595]',
 };
 
@@ -29,9 +32,9 @@ const priorityLabelMap: Record<'HIGH' | 'MEDIUM' | 'LOW', string> = {
   LOW: 'Baja',
 };
 
-const statusLabelMap: Record<'COMPLETED' | 'IN_PROGRESS' | 'REJECTED', string> = {
+const statusLabelMap: Record<'PENDING' | 'COMPLETED' | 'REJECTED', string> = {
+  PENDING: 'Pendiente',
   COMPLETED: 'Completada',
-  IN_PROGRESS: 'En Progreso',
   REJECTED: 'Rechazada',
 };
 
@@ -93,6 +96,25 @@ const RingChart = ({ title, segments }: { title: string; segments: RingSegment[]
 };
 
 export const SupervisorReportsPage = ({ reportData }: SupervisorReportsPageProps) => {
+  const [historyPage, setHistoryPage] = useState(1);
+
+  const totalHistoryPages = Math.max(1, Math.ceil(reportData.history.length / HISTORY_ITEMS_PER_PAGE));
+
+  const paginatedHistory = useMemo(() => {
+    const start = (historyPage - 1) * HISTORY_ITEMS_PER_PAGE;
+    return reportData.history.slice(start, start + HISTORY_ITEMS_PER_PAGE);
+  }, [reportData.history, historyPage]);
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [reportData.history]);
+
+  useEffect(() => {
+    if (historyPage > totalHistoryPages) {
+      setHistoryPage(totalHistoryPages);
+    }
+  }, [historyPage, totalHistoryPages]);
+
   const summaryCards = [
     { label: 'Total Tareas', value: reportData.total, sub: 'Total Tareas', tone: 'text-[#F4CE74]', icon: FaTasks },
     {
@@ -103,17 +125,16 @@ export const SupervisorReportsPage = ({ reportData }: SupervisorReportsPageProps
       icon: FaCheckCircle,
     },
     {
-      label: 'En Progreso',
-      value: reportData.inProgress,
-      sub: 'En Progreso',
-      tone: 'text-[#8ED0FF]',
+      label: 'Pendientes',
+      value: reportData.pending,
+      sub: 'Pendientes',
+      tone: 'text-[#F6C66E]',
       icon: FaClock,
     },
   ];
 
   const currentStatusSegments: RingSegment[] = [
     { label: 'Completadas', value: reportData.statusDistribution.completed, color: '#56D3FF' },
-    { label: 'En progreso', value: reportData.statusDistribution.inProgress, color: '#F3C75F' },
     { label: 'Pendientes', value: reportData.statusDistribution.pending, color: '#95E28F' },
     { label: 'Rechazadas', value: reportData.statusDistribution.rejected, color: '#E77F72' },
   ];
@@ -155,7 +176,7 @@ export const SupervisorReportsPage = ({ reportData }: SupervisorReportsPageProps
           ))}
         </div>
 
-        <div className="relative flex min-h-[430px] flex-col overflow-hidden rounded-lg bg-[#15161B] p-4 shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
+        <div className="relative flex h-[470px] flex-col overflow-hidden rounded-lg bg-[#15161B] p-4 shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
           <div
             className="pointer-events-none absolute top-0 left-0 h-20 w-full"
             style={{
@@ -164,10 +185,10 @@ export const SupervisorReportsPage = ({ reportData }: SupervisorReportsPageProps
             }}
           />
 
-          <div className="relative z-10">
+          <div className="relative z-10 flex h-full flex-col">
             <h3 className="mb-3 text-sm font-semibold text-[var(--blanco)]">Historial de Tareas</h3>
 
-            <div className="flex-1 overflow-x-auto">
+            <div className="flex-1 overflow-x-auto overflow-y-auto">
               <table className="w-full min-w-[560px] text-left text-xs">
                 <thead>
                   <tr className="border-b border-white/10 text-[var(--blanco)]/65">
@@ -178,7 +199,7 @@ export const SupervisorReportsPage = ({ reportData }: SupervisorReportsPageProps
                   </tr>
                 </thead>
                 <tbody>
-                  {reportData.history.map((row) => (
+                  {paginatedHistory.map((row) => (
                     <tr key={`${row.id}-${row.endDate}`} className="border-b border-white/5 text-[var(--blanco)]/85">
                       <td className="py-2.5 pr-2">{row.taskTitle}</td>
                       <td className="py-2.5">
@@ -199,7 +220,7 @@ export const SupervisorReportsPage = ({ reportData }: SupervisorReportsPageProps
                   {reportData.history.length === 0 && (
                     <tr>
                       <td colSpan={4} className="py-3 text-center text-[var(--blanco)]/60">
-                        Sin historial de solicitudes procesadas.
+                        Sin historial de logs registrados.
                       </td>
                     </tr>
                   )}
@@ -207,13 +228,52 @@ export const SupervisorReportsPage = ({ reportData }: SupervisorReportsPageProps
               </table>
             </div>
 
-            <div className="mt-3 flex flex-wrap items-center gap-6 text-xs text-[var(--blanco)]/75">
-              {resolvedPrioritySegments.map((segment) => (
-                <div key={segment.label} className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: segment.color }} />
-                  <span>{segment.label}</span>
+            <div className="mt-auto pt-3">
+              {reportData.history.length > 0 && (
+                <div className="mb-2 flex items-center justify-center gap-2 px-2 py-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setHistoryPage((prev) => Math.max(1, prev - 1))}
+                    disabled={historyPage === 1}
+                    className="flex h-7 w-7 items-center justify-center rounded text-[var(--blanco)]/70 disabled:cursor-not-allowed disabled:opacity-35"
+                    aria-label="Página anterior"
+                  >
+                    <FaChevronLeft size={10} />
+                  </button>
+
+                  <button
+                    type="button"
+                    className="relative flex h-7 min-w-7 items-center justify-center px-2 text-xs font-semibold text-[var(--blanco)]"
+                    aria-current="page"
+                  >
+                    {historyPage}
+                    <span className="pointer-events-none absolute -bottom-[2px] left-0 right-0 h-[2px] bg-[var(--dorado)]" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setHistoryPage((prev) => Math.min(totalHistoryPages, prev + 1))}
+                    disabled={historyPage === totalHistoryPages}
+                    className="flex h-7 w-7 items-center justify-center rounded text-[var(--blanco)]/70 disabled:cursor-not-allowed disabled:opacity-35"
+                    aria-label="Página siguiente"
+                  >
+                    <FaChevronRight size={10} />
+                  </button>
                 </div>
-              ))}
+              )}
+
+              <p className="mb-2 text-center text-xs text-[var(--blanco)]/70">
+                Página {historyPage} de {totalHistoryPages}
+              </p>
+
+              <div className="flex flex-wrap items-center gap-6 text-xs text-[var(--blanco)]/75">
+                {resolvedPrioritySegments.map((segment) => (
+                  <div key={segment.label} className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: segment.color }} />
+                    <span>{segment.label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 

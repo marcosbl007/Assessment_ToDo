@@ -37,7 +37,7 @@ export const NewTaskModal = ({ isOpen, creationForm, unitUsers, onClose, onSubmi
         <div className="relative z-10">
           <div className="relative mb-6 flex items-center justify-center">
             <h3 className="text-center text-2xl font-semibold uppercase tracking-[0.11em] text-[var(--blanco)] sm:text-3xl">
-              Nueva solicitud
+              Nueva tarea
             </h3>
             <button
               type="button"
@@ -105,7 +105,7 @@ export const NewTaskModal = ({ isOpen, creationForm, unitUsers, onClose, onSubmi
               onClick={onSubmit}
               className="rounded-lg bg-[var(--dorado)] px-4 py-2 text-sm font-semibold text-[var(--blanco)]"
             >
-              Enviar solicitud
+              Crear tarea
             </button>
           </div>
         </div>

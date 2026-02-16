@@ -22,7 +22,7 @@ export interface AuthResponse {
 }
 
 interface AccessTokenPayload {
-  sub: number;
+  sub: number | string;
   email: string;
   role: RoleCode;
   unit: string;
@@ -140,9 +140,16 @@ export class AuthService {
       }
 
       const payload = decoded as Partial<AccessTokenPayload>;
+      const normalizedSub =
+        typeof payload.sub === 'number'
+          ? payload.sub
+          : typeof payload.sub === 'string' && /^\d+$/.test(payload.sub)
+            ? Number(payload.sub)
+            : NaN;
 
       if (
-        typeof payload.sub !== 'number' ||
+        !Number.isInteger(normalizedSub) ||
+        normalizedSub <= 0 ||
         typeof payload.email !== 'string' ||
         (payload.role !== 'STANDARD' && payload.role !== 'SUPERVISOR') ||
         typeof payload.unit !== 'string'
@@ -151,7 +158,7 @@ export class AuthService {
       }
 
       return {
-        sub: payload.sub,
+        sub: normalizedSub,
         email: payload.email,
         role: payload.role,
         unit: payload.unit,
