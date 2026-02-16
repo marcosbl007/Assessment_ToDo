@@ -12,6 +12,7 @@ import type {
   PublicTask,
   TaskPriority,
   TaskStatus,
+  UnitUser,
   UpdateTaskRequestInput,
 } from './tasks.types';
 
@@ -62,6 +63,13 @@ export class TasksService {
     }
   }
 
+  private async ensureAssigneeBelongsToUnit(assigneeId: number, unitId: number): Promise<void> {
+    const user = await this.tasksRepository.findUserInUnit(assigneeId, unitId);
+    if (!user) {
+      throw new HttpError(400, 'El usuario asignado no pertenece a tu unidad o no está activo.');
+    }
+  }
+
   async getApprovedTasks(): Promise<PublicTask[]> {
     return this.tasksRepository.findApprovedTasks();
   }
@@ -76,6 +84,14 @@ export class TasksService {
     }
 
     return this.tasksRepository.findPendingChangeRequestsByUnit(unitName);
+  }
+
+  async getUnitUsers(unitName: string): Promise<UnitUser[]> {
+    if (!unitName?.trim()) {
+      throw new HttpError(400, 'No se pudo determinar la unidad organizacional del usuario.');
+    }
+
+    return this.tasksRepository.findUnitUsers(unitName);
   }
 
   async decidePendingRequest(
@@ -149,6 +165,7 @@ export class TasksService {
       payload.description === undefined &&
       payload.status === undefined &&
       payload.priority === undefined &&
+      payload.assignedToUserId === undefined &&
       payload.dueDate === undefined
     ) {
       throw new HttpError(400, 'Debes enviar al menos un campo para actualizar la tarea.');
@@ -156,6 +173,14 @@ export class TasksService {
 
     const unitId = await this.resolveUserUnitId(unitName);
     await this.ensureTaskBelongsToUnit(taskId, unitId);
+
+    if (payload.assignedToUserId !== undefined && payload.assignedToUserId !== null) {
+      if (!Number.isInteger(payload.assignedToUserId) || payload.assignedToUserId <= 0) {
+        throw new HttpError(400, 'assignedToUserId inválido.');
+      }
+
+      await this.ensureAssigneeBelongsToUnit(payload.assignedToUserId, unitId);
+    }
 
     return this.tasksRepository.createChangeRequest({
       taskId,
@@ -168,6 +193,7 @@ export class TasksService {
         ...(payload.description !== undefined ? { description: payload.description.trim() } : {}),
         ...(payload.status !== undefined ? { status: payload.status } : {}),
         ...(payload.priority !== undefined ? { priority: payload.priority } : {}),
+        ...(payload.assignedToUserId !== undefined ? { assignedToUserId: payload.assignedToUserId } : {}),
         ...(payload.dueDate !== undefined ? { dueDate: payload.dueDate } : {}),
       },
     });

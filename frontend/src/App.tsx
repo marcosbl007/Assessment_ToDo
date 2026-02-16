@@ -3,6 +3,7 @@
  */
 import { useEffect, useState } from 'react';
 import { LoginPage, RegisterPage } from './features/auth';
+import { SupervisorDashboardPage } from './features/supervisor';
 import type { User } from './types';
 import { clearSession, getSessionToken, meRequest } from './services';
 
@@ -55,12 +56,16 @@ function App() {
   }
 
   if (authenticatedUser) {
+    if (authenticatedUser.role === 'SUPERVISOR') {
+      return <SupervisorDashboardPage user={authenticatedUser} onLogout={handleLogout} />;
+    }
+
     return (
       <main className="min-h-screen bg-slate-50 p-8 text-slate-900">
         <section className="mx-auto w-full max-w-3xl rounded-2xl border border-slate-200 bg-white p-8 shadow-lg">
           <div className="mb-6 flex items-center justify-between">
             <h1 className="text-2xl font-bold tracking-[0.16em]">
-              {authenticatedUser.role === 'SUPERVISOR' ? 'PESTAÑA SUPERVISOR' : 'PESTAÑA STANDARD'}
+              PESTAÑA STANDARD
             </h1>
             <button
               type="button"
