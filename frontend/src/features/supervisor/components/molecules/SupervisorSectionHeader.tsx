@@ -1,7 +1,12 @@
+/**
+ * - Encabezado contextual del módulo supervisor.
+ * - Cambia título y acciones según sección activa.
+ */
 import { FaPlus } from 'react-icons/fa';
 import type { SupervisorSection } from '../../types';
 import { sectionTitleMap } from '../../utils';
 
+/** Props necesarias para renderizar saludo/título y CTA principal. */
 interface SupervisorSectionHeaderProps {
   activeSection: SupervisorSection;
   username: string;
@@ -17,6 +22,7 @@ export const SupervisorSectionHeader = ({
   unit,
   onCreateTask,
 }: SupervisorSectionHeaderProps) => {
+  /** Header especial del dashboard con botón de creación rápida. */
   if (activeSection === 'dashboard') {
     return (
       <div className="relative -mx-2 mb-3 overflow-hidden px-2 py-2 sm:-mx-5 sm:px-5 sm:py-3">
@@ -45,6 +51,7 @@ export const SupervisorSectionHeader = ({
     activeSection === 'notificaciones' ||
     activeSection === 'configuracion'
   ) {
+    /** Header estándar de secciones secundarias. */
     return (
       <div className="relative -mx-2 mb-3 overflow-hidden px-2 py-2 sm:-mx-5 sm:px-5 sm:py-3">
         <div className="relative z-10 flex flex-col items-start justify-between gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
@@ -58,6 +65,7 @@ export const SupervisorSectionHeader = ({
     );
   }
 
+  /** Fallback defensivo ante secciones no previstas. */
   return (
     <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
       <h1 className="text-2xl font-bold text-[var(--blanco)] sm:text-3xl">{sectionTitleMap[activeSection]}</h1>

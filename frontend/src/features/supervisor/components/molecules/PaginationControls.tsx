@@ -1,5 +1,10 @@
+/**
+ * - Controles de paginación compactos para el dashboard supervisor.
+ * - Habilita/deshabilita navegación según página actual.
+ */
 import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 
+/** Props de navegación para cambiar entre páginas. */
 interface PaginationControlsProps {
   currentPage: number;
   totalPages: number;
@@ -7,6 +12,7 @@ interface PaginationControlsProps {
 }
 
 export const PaginationControls = ({ currentPage, totalPages, onPageChange }: PaginationControlsProps) => {
+  /** Flags derivados para control de botones anterior/siguiente. */
   const canGoPrev = currentPage > 1;
   const canGoNext = currentPage < totalPages;
 

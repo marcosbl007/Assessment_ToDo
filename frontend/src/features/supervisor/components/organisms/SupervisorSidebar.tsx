@@ -1,8 +1,13 @@
+/**
+ * - Sidebar principal del módulo supervisor.
+ * - Controla navegación lateral, badge de pendientes y logout.
+ */
 import { FaBell, FaChartBar, FaClipboardList, FaCog, FaHome, FaPowerOff } from 'react-icons/fa';
 import type { SupervisorSection } from '../../types';
 import co2SmallLogo from '../../../../assets/co2.svg';
 import { SectionIconButton } from '../atoms/SectionIconButton';
 
+/** Contrato de interacción de la barra lateral. */
 interface SupervisorSidebarProps {
   activeSection: SupervisorSection;
   pendingCount: number;
@@ -18,6 +23,7 @@ export const SupervisorSidebar = ({
 }: SupervisorSidebarProps) => {
   return (
     <aside className="fixed inset-y-0 left-0 z-40 flex h-screen w-[76px] flex-shrink-0 flex-col justify-between overflow-hidden rounded-none bg-[#15161B] px-0 py-3 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)]">
+      {/** Capas decorativas de iluminación y separación lateral. */}
       <div
         className="pointer-events-none absolute top-0 left-0 h-28 w-full"
         style={{
@@ -40,6 +46,7 @@ export const SupervisorSidebar = ({
         }}
       />
 
+      {/** Navegación principal de secciones operativas. */}
       <div className="relative z-10 space-y-2">
         <div className="flex justify-center pb-1">
           <img src={co2SmallLogo} alt="CO2+" className="h-10 w-10 opacity-95" />
@@ -65,6 +72,7 @@ export const SupervisorSidebar = ({
         />
       </div>
 
+      {/** Accesos secundarios + cierre de sesión. */}
       <div className="relative z-10 space-y-1">
         <SectionIconButton
           active={activeSection === 'notificaciones'}
