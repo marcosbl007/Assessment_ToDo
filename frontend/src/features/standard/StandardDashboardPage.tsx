@@ -1,135 +1,238 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FaBell } from 'react-icons/fa';
 import { FaPowerOff } from 'react-icons/fa';
+import { FaCheckCircle, FaExclamationTriangle, FaTimes } from 'react-icons/fa';
 import { Logo } from '../../components/atoms';
+import {
+  completeTaskRequest,
+  deleteTaskRequest,
+  getApprovedTasksRequest,
+  getOwnChangeRequestsRequest,
+  getUnitUsersRequest,
+  updateTaskRequest,
+} from '../../services';
 import type { PendingTaskChangeRequest, TaskItem, UnitUser, User } from '../../types';
 import { SupervisorFiltersBar } from '../supervisor/components/molecules/SupervisorFiltersBar';
 import { SupervisorDashboardHomePage } from '../supervisor/pages/SupervisorDashboardHomePage';
 import { SupervisorTemporalPage } from '../supervisor/pages/SupervisorTemporalPage';
 import type { TaskSortBy } from '../supervisor/types';
 
-const mockUnitUsers: UnitUser[] = [
-  { id: 1, name: 'Mario San', email: 'mario@co2.com', role: 'STANDARD' },
-  { id: 2, name: 'Darlene Fox', email: 'darlene@co2.com', role: 'STANDARD' },
-  { id: 3, name: 'Ralph Edwards', email: 'ralph@co2.com', role: 'STANDARD' },
-  { id: 4, name: 'Courtney Henry', email: 'courtney@co2.com', role: 'STANDARD' },
-];
-
-const mockTasks: TaskItem[] = [
-  {
-    id: 101,
-    title: 'Auditoría de inventario CO2',
-    description: 'Validar equipos registrados en almacén central y actualizar observaciones pendientes.',
-    status: 'IN_PROGRESS',
-    priority: 'HIGH',
-    dueDate: '2026-02-18T11:30:00.000Z',
-    completedAt: null,
-    createdAt: '2026-02-14T09:00:00.000Z',
-    organizationalUnitCode: 'RRHH',
-    organizationalUnitName: 'Recursos Humanos (RRHH)',
-    createdBy: 'Marcos Supervisor',
-    approvedBy: null,
-    assignedToUserId: 1,
-    assignedTo: 'Mario San',
-  },
-  {
-    id: 102,
-    title: 'Revisión de tickets críticos',
-    description: 'Revisar solicitudes de prioridad alta y dejar decisión de aprobación para cierre del día.',
-    status: 'PENDING',
-    priority: 'MEDIUM',
-    dueDate: '2026-02-19T16:00:00.000Z',
-    completedAt: null,
-    createdAt: '2026-02-13T15:30:00.000Z',
-    organizationalUnitCode: 'RRHH',
-    organizationalUnitName: 'Recursos Humanos (RRHH)',
-    createdBy: 'Marcos Supervisor',
-    approvedBy: null,
-    assignedToUserId: 2,
-    assignedTo: 'Darlene Fox',
-  },
-  {
-    id: 103,
-    title: 'Actualización de reporte mensual',
-    description: 'Consolidar métricas de tareas aprobadas y exportar resumen para la reunión gerencial.',
-    status: 'COMPLETED',
-    priority: 'LOW',
-    dueDate: '2026-02-20T10:00:00.000Z',
-    completedAt: '2026-02-12T10:45:00.000Z',
-    createdAt: '2026-02-12T08:10:00.000Z',
-    organizationalUnitCode: 'RRHH',
-    organizationalUnitName: 'Recursos Humanos (RRHH)',
-    createdBy: 'Marcos Supervisor',
-    approvedBy: 'Laura Jefa',
-    assignedToUserId: 3,
-    assignedTo: 'Ralph Edwards',
-  },
-];
-
-const initialMockPendingRequests: PendingTaskChangeRequest[] = [
-  {
-    id: 201,
-    taskId: 101,
-    changeType: 'UPDATE',
-    status: 'PENDING',
-    reason: 'Ajuste de prioridad por cambio de urgencia operacional.',
-    payload: { priority: 'HIGH', description: 'Actualizar prioridad y observación.' },
-    requestedAt: '2026-02-15T08:40:00.000Z',
-    requestedBy: 'Mario San',
-    organizationalUnitCode: 'RRHH',
-    organizationalUnitName: 'Recursos Humanos (RRHH)',
-    currentTaskTitle: 'Auditoría de inventario CO2',
-  },
-  {
-    id: 202,
-    taskId: 102,
-    changeType: 'COMPLETE',
-    status: 'PENDING',
-    reason: 'Solicitud de cierre por cumplimiento total del checklist.',
-    payload: {},
-    requestedAt: '2026-02-15T10:15:00.000Z',
-    requestedBy: 'Darlene Fox',
-    organizationalUnitCode: 'RRHH',
-    organizationalUnitName: 'Recursos Humanos (RRHH)',
-    currentTaskTitle: 'Revisión de tickets críticos',
-  },
-  {
-    id: 203,
-    taskId: 103,
-    changeType: 'DELETE',
-    status: 'PENDING',
-    reason: 'Registro duplicado detectado por el equipo de control.',
-    payload: {},
-    requestedAt: '2026-02-15T11:20:00.000Z',
-    requestedBy: 'Ralph Edwards',
-    organizationalUnitCode: 'RRHH',
-    organizationalUnitName: 'Recursos Humanos (RRHH)',
-    currentTaskTitle: 'Actualización de reporte mensual',
-  },
-];
-
 interface StandardDashboardPageProps {
   user: User;
   onLogout: () => void;
 }
+
+interface StandardNotificationItem {
+  id: number;
+  title: string;
+  task: string;
+  priority: string;
+  assignedBy: string;
+  receivedAt: string;
+  unread: boolean;
+  sortTime: number;
+}
+
+const requestTypeLabelMap: Record<PendingTaskChangeRequest['changeType'], string> = {
+  CREATE: 'creación',
+  UPDATE: 'actualización',
+  COMPLETE: 'completado',
+  DELETE: 'eliminación',
+};
+
+const priorityLabelMap: Record<TaskItem['priority'], string> = {
+  HIGH: 'Alta',
+  MEDIUM: 'Media',
+  LOW: 'Baja',
+};
+
+const formatRelativeTime = (value: string): string => {
+  const target = new Date(value).getTime();
+  if (Number.isNaN(target)) {
+    return 'Reciente';
+  }
+
+  const diffMs = Date.now() - target;
+  const diffMinutes = Math.max(1, Math.floor(diffMs / 60000));
+
+  if (diffMinutes < 60) {
+    return `Hace ${diffMinutes} min`;
+  }
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) {
+    return `Hace ${diffHours} h`;
+  }
+
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) {
+    return 'Ayer';
+  }
+
+  return `Hace ${diffDays} días`;
+};
+
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return 'No se pudo completar la operación.';
+};
 
 export const StandardDashboardPage = ({ user, onLogout }: StandardDashboardPageProps) => {
   const [activeBoard, setActiveBoard] = useState<'general' | 'temporal'>('general');
   const [searchText, setSearchText] = useState('');
   const [priorityFilter, setPriorityFilter] = useState<TaskItem['priority'] | null>(null);
   const [sortBy, setSortBy] = useState<TaskSortBy>('new');
+  const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const [unitUsers, setUnitUsers] = useState<UnitUser[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<PendingTaskChangeRequest[]>([]);
   const [selectedAssignees, setSelectedAssignees] = useState<Record<number, string>>({});
-  const [pendingRequests, setPendingRequests] = useState<PendingTaskChangeRequest[]>(initialMockPendingRequests);
+  const [selectedDueDates, setSelectedDueDates] = useState<Record<number, string>>({});
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const notificationsRef = useRef<HTMLDivElement | null>(null);
+
+  const loadDashboardData = useCallback(async (showLoading: boolean) => {
+    if (showLoading) {
+      setIsLoading(true);
+    }
+
+    try {
+      setLoadError(null);
+      const [apiTasks, apiUnitUsers, apiRequests] = await Promise.all([
+        getApprovedTasksRequest(),
+        getUnitUsersRequest(),
+        getOwnChangeRequestsRequest(),
+      ]);
+
+      setTasks(apiTasks);
+      setUnitUsers(apiUnitUsers);
+      setPendingRequests(apiRequests);
+    } catch (error) {
+      setLoadError(getErrorMessage(error));
+    } finally {
+      if (showLoading) {
+        setIsLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadDashboardData(true);
+
+    const intervalId = window.setInterval(() => {
+      void loadDashboardData(false);
+    }, 30000);
+
+    return () => window.clearInterval(intervalId);
+  }, [loadDashboardData]);
+
+  const notifications = useMemo(() => {
+    const taskNotifications: StandardNotificationItem[] = tasks.map((task) => {
+      const sortTime = new Date(task.createdAt).getTime();
+      const isRecent = Date.now() - sortTime < 24 * 60 * 60 * 1000;
+
+      return {
+        id: Number(`1${task.id}`),
+        title: 'Nueva tarea asignada',
+        task: task.title,
+        priority: priorityLabelMap[task.priority],
+        assignedBy: task.createdBy,
+        receivedAt: formatRelativeTime(task.createdAt),
+        unread: isRecent,
+        sortTime,
+      };
+    });
+
+    const requestNotifications: StandardNotificationItem[] = pendingRequests.map((request) => {
+      const sortTime = new Date(request.requestedAt).getTime();
+      const title =
+        request.status === 'PENDING'
+          ? `Solicitud de ${requestTypeLabelMap[request.changeType]} en revisión`
+          : request.status === 'APPROVED'
+            ? `Solicitud de ${requestTypeLabelMap[request.changeType]} aprobada`
+            : `Solicitud de ${requestTypeLabelMap[request.changeType]} rechazada`;
+
+      return {
+        id: Number(`2${request.id}`),
+        title,
+        task: request.currentTaskTitle ?? `Solicitud #${request.id}`,
+        priority:
+          request.changeType === 'DELETE' || request.changeType === 'COMPLETE'
+            ? 'Alta'
+            : request.changeType === 'UPDATE'
+              ? 'Media'
+              : 'Baja',
+        assignedBy: request.requestedBy,
+        receivedAt: formatRelativeTime(request.requestedAt),
+        unread: request.status === 'PENDING',
+        sortTime,
+      };
+    });
+
+    return [...taskNotifications, ...requestNotifications]
+      .sort((first, second) => second.sortTime - first.sortTime)
+      .slice(0, 8);
+  }, [tasks, pendingRequests]);
+
+  const unreadNotifications = notifications.filter((notification) => notification.unread).length;
+
+  useEffect(() => {
+    if (!isNotificationsOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!notificationsRef.current) {
+        return;
+      }
+
+      if (event.target instanceof Node && notificationsRef.current.contains(event.target)) {
+        return;
+      }
+
+      setIsNotificationsOpen(false);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsNotificationsOpen(false);
+      }
+    };
+
+    window.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('keydown', handleEscape);
+
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [isNotificationsOpen]);
 
   const handlePriorityFilter = (priority: TaskItem['priority']) => {
     setPriorityFilter((current) => (current === priority ? null : priority));
   };
 
+  const temporalTaskIds = useMemo(() => {
+    return new Set(
+      pendingRequests
+        .filter((request) => (request.status === 'PENDING' || request.status === 'APPROVED') && request.taskId !== null)
+        .map((request) => request.taskId as number),
+    );
+  }, [pendingRequests]);
+
   const filteredTasks = useMemo(() => {
     const normalized = searchText.trim().toLowerCase();
 
-    const base = mockTasks.filter((task) => {
+    const base = tasks.filter((task) => {
+      if (temporalTaskIds.has(task.id)) {
+        return false;
+      }
+
       const matchesSearch =
         !normalized ||
         String(task.id).includes(normalized) ||
@@ -153,7 +256,7 @@ export const StandardDashboardPage = ({ user, onLogout }: StandardDashboardPageP
     }
 
     return sorted;
-  }, [searchText, priorityFilter, sortBy]);
+  }, [tasks, searchText, priorityFilter, sortBy, temporalTaskIds]);
 
   const filteredPendingRequests = useMemo(() => {
     const normalized = searchText.trim().toLowerCase();
@@ -207,10 +310,82 @@ export const StandardDashboardPage = ({ user, onLogout }: StandardDashboardPageP
     return sorted;
   }, [pendingRequests, searchText, priorityFilter, sortBy]);
 
+  const pendingOnlyRequests = useMemo(
+    () => filteredPendingRequests.filter((request) => request.status === 'PENDING'),
+    [filteredPendingRequests],
+  );
+
+  const handleAssignTask = useCallback(
+    async (taskId: number) => {
+      const selectedAssignee = selectedAssignees[taskId];
+      const assigneeId = Number(selectedAssignee);
+      const selectedDueDate = selectedDueDates[taskId];
+      const task = tasks.find((currentTask) => currentTask.id === taskId);
+      const currentDueDate = task?.dueDate ? task.dueDate.slice(0, 10) : '';
+      const hasDueDateChange = selectedDueDate !== undefined && selectedDueDate !== currentDueDate;
+      const hasAssigneeChange = !!selectedAssignee && Number.isInteger(assigneeId) && assigneeId > 0;
+
+      if (!hasAssigneeChange && !hasDueDateChange) {
+        setFeedback('Realiza un cambio de fecha objetivo o reasignación antes de solicitar aprobación.');
+        return;
+      }
+
+      try {
+        await updateTaskRequest(taskId, {
+          ...(hasAssigneeChange ? { assignedToUserId: assigneeId } : {}),
+          ...(hasDueDateChange ? { dueDate: selectedDueDate || undefined } : {}),
+          reason: 'Solicitud de actualización enviada por usuario estándar.',
+        });
+
+        setFeedback(`Solicitud de actualización enviada para tarea #${taskId}.`);
+        setSelectedAssignees((state) => {
+          const nextState = { ...state };
+          delete nextState[taskId];
+          return nextState;
+        });
+        setSelectedDueDates((state) => {
+          const nextState = { ...state };
+          delete nextState[taskId];
+          return nextState;
+        });
+        await loadDashboardData(false);
+      } catch (error) {
+        setFeedback(getErrorMessage(error));
+      }
+    },
+    [selectedAssignees, selectedDueDates, tasks, loadDashboardData],
+  );
+
+  const handleCompleteTask = useCallback(
+    async (taskId: number) => {
+      try {
+        await completeTaskRequest(taskId, 'Solicitud de completado enviada por usuario estándar.');
+        setFeedback(`Solicitud de completado enviada para tarea #${taskId}.`);
+        await loadDashboardData(false);
+      } catch (error) {
+        setFeedback(getErrorMessage(error));
+      }
+    },
+    [loadDashboardData],
+  );
+
+  const handleDeleteTask = useCallback(
+    async (taskId: number) => {
+      try {
+        await deleteTaskRequest(taskId, 'Solicitud de eliminación enviada por usuario estándar.');
+        setFeedback(`Solicitud de eliminación enviada para tarea #${taskId}.`);
+        await loadDashboardData(false);
+      } catch (error) {
+        setFeedback(getErrorMessage(error));
+      }
+    },
+    [loadDashboardData],
+  );
+
   return (
     <main className="flex min-h-screen flex-col bg-[var(--fondo)] text-[var(--blanco)]">
       <section className="px-2 pt-0 sm:px-5">
-        <header className="relative -mx-2 mb-0 overflow-hidden px-2 py-2 sm:-mx-5 sm:px-5 sm:py-3">
+        <header className="relative z-20 -mx-2 mb-0 overflow-visible px-2 py-2 sm:-mx-5 sm:px-5 sm:py-3">
           <div
             className="pointer-events-none absolute top-0 left-0 h-32 w-full"
             style={{
@@ -228,14 +403,82 @@ export const StandardDashboardPage = ({ user, onLogout }: StandardDashboardPageP
             </div>
 
             <div className="flex items-center gap-2 self-end sm:self-auto">
-              <button
-                type="button"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[var(--blanco)]/90 hover:text-[var(--blanco)]"
-                aria-label="Notificaciones"
-                title="Notificaciones"
-              >
-                <FaBell />
-              </button>
+              <div className="relative" ref={notificationsRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsNotificationsOpen((current) => !current)}
+                  className="relative inline-flex h-10 w-10 items-center justify-center rounded-full text-[var(--blanco)]/90 hover:text-[var(--blanco)]"
+                  aria-label="Notificaciones"
+                  title="Notificaciones"
+                  aria-expanded={isNotificationsOpen}
+                >
+                  <FaBell />
+                  {unreadNotifications > 0 && (
+                    <>
+                      <span className="absolute top-[7px] right-[8px] h-2 w-2 rounded-full bg-[var(--dorado)]" />
+                      <span className="absolute -top-1 -right-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border border-[var(--fondo)] bg-[var(--dorado)] px-1 text-[10px] font-semibold text-[var(--fondo)]">
+                        {unreadNotifications}
+                      </span>
+                    </>
+                  )}
+                </button>
+
+                {isNotificationsOpen && (
+                  <div className="absolute right-0 top-[calc(100%+10px)] z-30 w-[22rem] max-w-[calc(100vw-1.5rem)] rounded-md bg-[var(--fondo)] shadow-2xl">
+                    <span className="pointer-events-none absolute -top-2 right-3 h-4 w-4 rotate-45 bg-[var(--fondo)]" />
+
+                    <div className="flex items-center justify-between border-b border-[var(--blanco)]/10 px-4 py-3">
+                      <h2 className="text-sm font-semibold tracking-[0.02em] text-[var(--blanco)]">Notificaciones</h2>
+                      <span className="rounded-full border border-[var(--dorado)]/40 bg-[var(--dorado)]/15 px-2 py-0.5 text-xs font-medium text-[var(--blanco)]">
+                        {notifications.length}
+                      </span>
+                    </div>
+
+                    <div className="max-h-[20rem] overflow-y-auto px-2 py-2">
+                      {notifications.map((notification, index) => (
+                        <article
+                          key={notification.id}
+                          className="relative mb-1 rounded-md px-2 py-2 transition-colors hover:bg-[var(--blanco)]/[0.03]"
+                        >
+                          <div className="flex items-start gap-2">
+                            <span className="mt-1 h-2 w-2 rounded-full bg-[var(--dorado)]" />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="truncate text-xs font-semibold text-[var(--blanco)]">{notification.title}</p>
+                                {notification.unread && (
+                                  <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.04em] text-[var(--dorado)]">
+                                    Nuevo
+                                  </span>
+                                )}
+                              </div>
+
+                              <p className="mt-0.5 truncate text-xs text-[var(--blanco)]/85">{notification.task}</p>
+                              <p className="mt-1 text-[11px] text-[var(--blanco)]/65">
+                                Prioridad {notification.priority} • {notification.assignedBy}
+                              </p>
+                              <p className="mt-0.5 text-[11px] text-[var(--blanco)]/55">{notification.receivedAt}</p>
+                            </div>
+                          </div>
+
+                          {index < notifications.length - 1 && (
+                            <span
+                              className="pointer-events-none absolute bottom-0 left-2 right-2 h-px"
+                              style={{
+                                background:
+                                  'linear-gradient(to right, transparent 0%, rgba(157, 131, 62, 0.75) 20%, rgba(157, 131, 62, 0.75) 80%, transparent 100%)',
+                              }}
+                            />
+                          )}
+                        </article>
+                      ))}
+
+                      {notifications.length === 0 && (
+                        <p className="px-2 py-3 text-xs text-[var(--blanco)]/65">No hay notificaciones por ahora.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <button
                 type="button"
@@ -272,6 +515,39 @@ export const StandardDashboardPage = ({ user, onLogout }: StandardDashboardPageP
         </div>
 
         <div className="relative z-10 pt-3 sm:pt-4">
+          {(feedback || loadError) && (
+            <div className="pointer-events-none fixed right-5 top-24 z-[120]">
+              <div
+                className={`pointer-events-auto flex max-w-[420px] items-start gap-3 rounded-xl border px-4 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur-sm ${
+                  loadError
+                    ? 'border-[#E77F72]/45 bg-[#2D1D1D]/90 text-[#FECACA]'
+                    : 'border-[var(--dorado)]/45 bg-[#15161B]/95 text-[var(--blanco)]'
+                }`}
+              >
+                <span
+                  className={`mt-0.5 text-base ${loadError ? 'text-[#E77F72]' : 'text-[var(--dorado)]'}`}
+                  aria-hidden="true"
+                >
+                  {loadError ? <FaExclamationTriangle /> : <FaCheckCircle />}
+                </span>
+
+                <div className="min-w-0 flex-1 text-sm leading-relaxed">{loadError ?? feedback}</div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFeedback(null);
+                    setLoadError(null);
+                  }}
+                  className="text-[var(--blanco)]/65 transition hover:text-[var(--blanco)]"
+                  aria-label="Cerrar mensaje"
+                >
+                  <FaTimes />
+                </button>
+              </div>
+            </div>
+          )}
+
           <SupervisorFiltersBar
             searchText={searchText}
             onSearchTextChange={setSearchText}
@@ -308,41 +584,39 @@ export const StandardDashboardPage = ({ user, onLogout }: StandardDashboardPageP
             </button>
           </div>
 
-          {feedback && (
-            <div className="mb-3 rounded-md border border-[var(--dorado)]/40 bg-[var(--dorado)]/10 px-3 py-2 text-sm text-[var(--blanco)]">
-              {feedback}
+          {isLoading ? (
+            <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4 text-sm text-[var(--blanco)]/75">
+              Cargando información del dashboard...
             </div>
-          )}
+          ) : (
+            <>
+              {activeBoard === 'general' && (
+                <SupervisorDashboardHomePage
+                  tasks={filteredTasks}
+                  selectedAssignees={selectedAssignees}
+                  selectedDueDates={selectedDueDates}
+                  unitUsers={unitUsers}
+                  isRequestMode
+                  onAssigneeChange={(taskId, userId) =>
+                    setSelectedAssignees((state) => ({
+                      ...state,
+                      [taskId]: userId,
+                    }))
+                  }
+                  onDueDateChange={(taskId, dueDate) =>
+                    setSelectedDueDates((state) => ({
+                      ...state,
+                      [taskId]: dueDate,
+                    }))
+                  }
+                  onAssignTask={handleAssignTask}
+                  onCompleteTask={handleCompleteTask}
+                  onDeleteTask={handleDeleteTask}
+                />
+              )}
 
-          {activeBoard === 'general' && (
-            <SupervisorDashboardHomePage
-              tasks={filteredTasks}
-              selectedAssignees={selectedAssignees}
-              unitUsers={mockUnitUsers}
-              onAssigneeChange={(taskId, userId) =>
-                setSelectedAssignees((state) => ({
-                  ...state,
-                  [taskId]: userId,
-                }))
-              }
-              onAssignTask={(taskId) => setFeedback(`Solicitud de asignación enviada para tarea #${taskId}.`)}
-              onCompleteTask={(taskId) => setFeedback(`Solicitud de completado enviada para tarea #${taskId}.`)}
-              onDeleteTask={(taskId) => setFeedback(`Solicitud de eliminación enviada para tarea #${taskId}.`)}
-            />
-          )}
-
-          {activeBoard === 'temporal' && (
-            <SupervisorTemporalPage
-              pendingRequests={filteredPendingRequests}
-              onDecision={(requestId, decision) => {
-                setPendingRequests((state) => state.filter((request) => request.id !== requestId));
-                setFeedback(
-                  decision === 'APPROVED'
-                    ? `Solicitud #${requestId} aprobada correctamente.`
-                    : `Solicitud #${requestId} rechazada correctamente.`,
-                );
-              }}
-            />
+              {activeBoard === 'temporal' && <SupervisorTemporalPage pendingRequests={pendingOnlyRequests} readOnly />}
+            </>
           )}
         </div>
       </section>

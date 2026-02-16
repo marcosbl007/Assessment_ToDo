@@ -7,10 +7,23 @@ const ITEMS_PER_PAGE = 8;
 
 interface SupervisorTemporalPageProps {
   pendingRequests: PendingTaskChangeRequest[];
-  onDecision: (requestId: number, decision: 'APPROVED' | 'REJECTED') => void;
+  onDecision?: (requestId: number, decision: 'APPROVED' | 'REJECTED') => void;
+  readOnly?: boolean;
 }
 
-export const SupervisorTemporalPage = ({ pendingRequests, onDecision }: SupervisorTemporalPageProps) => {
+const statusLabelMap: Record<PendingTaskChangeRequest['status'], string> = {
+  PENDING: 'PENDIENTE',
+  APPROVED: 'APROBADA',
+  REJECTED: 'RECHAZADA',
+};
+
+const statusClassMap: Record<PendingTaskChangeRequest['status'], string> = {
+  PENDING: 'bg-[#2A2418] text-[#F6C66E]',
+  APPROVED: 'bg-[#1A2B22] text-[#8BE8B2]',
+  REJECTED: 'bg-[#2C1B21] text-[#F7A8B8]',
+};
+
+export const SupervisorTemporalPage = ({ pendingRequests, onDecision, readOnly = false }: SupervisorTemporalPageProps) => {
   const [selectedRequest, setSelectedRequest] = useState<PendingTaskChangeRequest | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -31,8 +44,10 @@ export const SupervisorTemporalPage = ({ pendingRequests, onDecision }: Supervis
         {paginatedRequests.map((request) => (
           <article
             key={request.id}
-            onClick={() => setSelectedRequest(request)}
-            className="relative cursor-pointer overflow-hidden rounded-lg bg-[#15161B] p-4 shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
+            onClick={readOnly ? undefined : () => setSelectedRequest(request)}
+            className={`relative overflow-hidden rounded-lg bg-[#15161B] p-4 shadow-[0_8px_24px_rgba(0,0,0,0.35)] ${
+              readOnly ? '' : 'cursor-pointer'
+            }`}
           >
             <div
               className="pointer-events-none absolute top-0 left-0 h-20 w-full"
@@ -45,7 +60,9 @@ export const SupervisorTemporalPage = ({ pendingRequests, onDecision }: Supervis
             <div className="relative z-10">
               <div className="mb-2 flex items-start justify-between gap-2">
                 <span className="text-sm font-semibold text-[var(--blanco)]/80">Solicitud #{request.id}</span>
-                <span className="rounded-full bg-[#2A2418] px-2 py-0.5 text-[10px] font-semibold text-[#F6C66E]">PENDIENTE</span>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusClassMap[request.status]}`}>
+                  {statusLabelMap[request.status]}
+                </span>
               </div>
 
               <div className="mb-2 flex items-center justify-between gap-2">
@@ -94,7 +111,7 @@ export const SupervisorTemporalPage = ({ pendingRequests, onDecision }: Supervis
         </div>
       )}
 
-      {selectedRequest && (
+      {selectedRequest && !readOnly && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 px-4 backdrop-blur-sm">
           <div className="relative w-full max-w-2xl overflow-hidden rounded-lg bg-[#15161B] p-5 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] md:p-6">
             <div
@@ -165,7 +182,7 @@ export const SupervisorTemporalPage = ({ pendingRequests, onDecision }: Supervis
                 <button
                   type="button"
                   onClick={() => {
-                    onDecision(selectedRequest.id, 'REJECTED');
+                    onDecision?.(selectedRequest.id, 'REJECTED');
                     setSelectedRequest(null);
                   }}
                   className="rounded-lg border border-red-400/35 px-4 py-2 text-sm font-semibold text-red-300"
@@ -175,7 +192,7 @@ export const SupervisorTemporalPage = ({ pendingRequests, onDecision }: Supervis
                 <button
                   type="button"
                   onClick={() => {
-                    onDecision(selectedRequest.id, 'APPROVED');
+                    onDecision?.(selectedRequest.id, 'APPROVED');
                     setSelectedRequest(null);
                   }}
                   className="rounded-lg bg-[var(--dorado)] px-4 py-2 text-sm font-semibold text-[var(--blanco)]"

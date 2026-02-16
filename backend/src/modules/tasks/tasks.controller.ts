@@ -3,6 +3,7 @@ import { HttpError } from '../../shared/errors/HttpError';
 import type { AuthenticatedRequest } from '../../shared/types/authenticated-request';
 import { TasksService } from './tasks.service';
 import type {
+  ApprovalStatus,
   ChangeRequestDecisionInput,
   CompleteTaskRequestInput,
   CreateTaskRequestInput,
@@ -23,10 +24,16 @@ export class TasksController {
 
     try {
       const payload = req.body as CreateTaskRequestInput;
-      const request = await this.tasksService.requestTaskCreation(authReq.authUser.id, authReq.authUser.unit, payload);
+      const request = await this.tasksService.requestTaskCreation(
+        authReq.authUser.id,
+        authReq.authUser.role,
+        authReq.authUser.unit,
+        payload,
+      );
+      const isSupervisor = authReq.authUser.role === 'SUPERVISOR';
 
       res.status(201).json({
-        message: 'Solicitud de creación enviada para aprobación.',
+        message: isSupervisor ? 'Tarea creada correctamente.' : 'Solicitud de creación enviada para aprobación.',
         request,
       });
     } catch (error) {
@@ -46,10 +53,17 @@ export class TasksController {
 
     try {
       const payload = req.body as UpdateTaskRequestInput;
-      const request = await this.tasksService.requestTaskUpdate(authReq.authUser.id, authReq.authUser.unit, taskId, payload);
+      const request = await this.tasksService.requestTaskUpdate(
+        authReq.authUser.id,
+        authReq.authUser.role,
+        authReq.authUser.unit,
+        taskId,
+        payload,
+      );
+      const isSupervisor = authReq.authUser.role === 'SUPERVISOR';
 
       res.status(201).json({
-        message: 'Solicitud de actualización enviada para aprobación.',
+        message: isSupervisor ? 'Tarea actualizada correctamente.' : 'Solicitud de actualización enviada para aprobación.',
         request,
       });
     } catch (error) {
@@ -71,13 +85,17 @@ export class TasksController {
       const payload = req.body as CompleteTaskRequestInput;
       const request = await this.tasksService.requestTaskCompletion(
         authReq.authUser.id,
+        authReq.authUser.role,
         authReq.authUser.unit,
         taskId,
         payload,
       );
+      const isSupervisor = authReq.authUser.role === 'SUPERVISOR';
 
       res.status(201).json({
-        message: 'Solicitud de completado enviada para aprobación.',
+        message: isSupervisor
+          ? 'Tarea marcada como completada correctamente.'
+          : 'Solicitud de completado enviada para aprobación.',
         request,
       });
     } catch (error) {
@@ -99,13 +117,15 @@ export class TasksController {
       const payload = req.body as DeleteTaskRequestInput;
       const request = await this.tasksService.requestTaskDeletion(
         authReq.authUser.id,
+        authReq.authUser.role,
         authReq.authUser.unit,
         taskId,
         payload,
       );
+      const isSupervisor = authReq.authUser.role === 'SUPERVISOR';
 
       res.status(201).json({
-        message: 'Solicitud de eliminación enviada para aprobación.',
+        message: isSupervisor ? 'Tarea eliminada correctamente.' : 'Solicitud de eliminación enviada para aprobación.',
         request,
       });
     } catch (error) {
@@ -113,10 +133,43 @@ export class TasksController {
     }
   };
 
-  listApprovedTasks = async (_req: Request, res: Response): Promise<void> => {
+  listApprovedTasks = async (req: Request, res: Response): Promise<void> => {
+    const authReq = req as AuthenticatedRequest;
+
+    if (!authReq.authUser) {
+      res.status(401).json({ message: 'No autenticado' });
+      return;
+    }
+
     try {
-      const tasks = await this.tasksService.getApprovedTasks();
+      const tasks = await this.tasksService.getApprovedTasks(
+        authReq.authUser.unit,
+        authReq.authUser.role,
+        authReq.authUser.id,
+      );
       res.status(200).json({ tasks });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  };
+
+  listOwnRequests = async (req: Request, res: Response): Promise<void> => {
+    const authReq = req as AuthenticatedRequest;
+
+    if (!authReq.authUser) {
+      res.status(401).json({ message: 'No autenticado' });
+      return;
+    }
+
+    try {
+      const rawStatus = req.query.status;
+      const status =
+        typeof rawStatus === 'string' && rawStatus.trim().length > 0
+          ? (rawStatus.trim().toUpperCase() as ApprovalStatus)
+          : undefined;
+
+      const requests = await this.tasksService.getOwnChangeRequests(authReq.authUser.id, authReq.authUser.unit, status);
+      res.status(200).json({ requests });
     } catch (error) {
       this.handleError(error, res);
     }

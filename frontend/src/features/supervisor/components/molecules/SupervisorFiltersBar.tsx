@@ -34,7 +34,7 @@ export const SupervisorFiltersBar = ({
           type="text"
           value={searchText}
           onChange={(event) => onSearchTextChange(event.target.value)}
-          placeholder="Search order, product, customer"
+          placeholder="Buscar por ID, nombre o descripción"
           className="w-full bg-transparent text-xs text-[var(--blanco)] outline-none sm:text-sm"
         />
         <span className="pointer-events-none absolute bottom-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-[var(--dorado)] to-transparent" />
