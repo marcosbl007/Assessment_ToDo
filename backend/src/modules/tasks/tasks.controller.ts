@@ -122,6 +122,22 @@ export class TasksController {
     }
   };
 
+  listUnitUsers = async (req: Request, res: Response): Promise<void> => {
+    const authReq = req as AuthenticatedRequest;
+
+    if (!authReq.authUser) {
+      res.status(401).json({ message: 'No autenticado' });
+      return;
+    }
+
+    try {
+      const users = await this.tasksService.getUnitUsers(authReq.authUser.unit);
+      res.status(200).json({ users });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  };
+
   listPendingRequests = async (req: Request, res: Response): Promise<void> => {
     const authReq = req as AuthenticatedRequest;
 

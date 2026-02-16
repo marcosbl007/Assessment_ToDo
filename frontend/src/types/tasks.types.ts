@@ -1,13 +1,13 @@
-export type ApprovalDecision = 'APPROVED' | 'REJECTED';
 export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH';
+export type ApprovalDecision = 'APPROVED' | 'REJECTED';
 
-export interface PublicTask {
+export interface TaskItem {
   id: number;
   title: string;
   description: string | null;
-  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
-  priority: 'LOW' | 'MEDIUM' | 'HIGH';
+  status: TaskStatus;
+  priority: TaskPriority;
   dueDate: string | null;
   completedAt: string | null;
   createdAt: string;
@@ -17,7 +17,7 @@ export interface PublicTask {
   approvedBy: string | null;
 }
 
-export interface PendingChangeRequest {
+export interface PendingTaskChangeRequest {
   id: number;
   taskId: number | null;
   changeType: 'CREATE' | 'UPDATE' | 'COMPLETE' | 'DELETE';
@@ -31,26 +31,23 @@ export interface PendingChangeRequest {
   currentTaskTitle: string | null;
 }
 
-export interface ChangeRequestDecisionInput {
-  decision: ApprovalDecision;
-  reviewComment?: string;
+export interface UnitUser {
+  id: number;
+  name: string;
+  email: string;
+  role: 'STANDARD' | 'SUPERVISOR';
 }
 
-export interface ChangeRequestDecisionResult {
-  changeRequestId: number;
-  status: ApprovalDecision;
-  taskId: number | null;
-}
-
-export interface CreateTaskRequestInput {
+export interface CreateTaskRequestData {
   title: string;
   description?: string;
   priority?: TaskPriority;
   dueDate?: string;
+  assignedToUserId?: number | null;
   reason?: string;
 }
 
-export interface UpdateTaskRequestInput {
+export interface UpdateTaskRequestData {
   title?: string;
   description?: string;
   status?: TaskStatus;
@@ -60,24 +57,7 @@ export interface UpdateTaskRequestInput {
   reason?: string;
 }
 
-export interface CompleteTaskRequestInput {
-  reason?: string;
-}
-
-export interface DeleteTaskRequestInput {
-  reason?: string;
-}
-
-export interface ChangeRequestCreated {
-  id: number;
-  changeType: 'CREATE' | 'UPDATE' | 'COMPLETE' | 'DELETE';
-  status: 'PENDING';
-  requestedAt: string;
-}
-
-export interface UnitUser {
-  id: number;
-  name: string;
-  email: string;
-  role: 'STANDARD' | 'SUPERVISOR';
+export interface DecisionTaskRequestData {
+  decision: ApprovalDecision;
+  reviewComment?: string;
 }

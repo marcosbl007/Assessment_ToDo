@@ -5,6 +5,7 @@ import type {
   ChangeRequestDecisionResult,
   PendingChangeRequest,
   PublicTask,
+  UnitUser,
 } from './tasks.types';
 
 interface UnitRef {
@@ -14,6 +15,10 @@ interface UnitRef {
 interface TaskUnitRef {
   id: number;
   organizationalUnitId: number;
+}
+
+interface UserUnitRef {
+  id: number;
 }
 
 export class TasksRepository {
@@ -163,5 +168,38 @@ export class TasksRepository {
     }
 
     return created;
+  }
+
+  async findUnitUsers(unitName: string): Promise<UnitUser[]> {
+    const query = `
+      SELECT
+        u.id,
+        u.full_name AS name,
+        u.email,
+        r.code AS role
+      FROM users u
+      INNER JOIN organizational_units ou ON ou.id = u.organizational_unit_id
+      INNER JOIN roles r ON r.id = u.role_id
+      WHERE u.is_active = TRUE
+        AND lower(ou.name) = lower($1)
+      ORDER BY u.full_name ASC
+    `;
+
+    const { rows } = await pool.query<UnitUser>(query, [unitName.trim()]);
+    return rows;
+  }
+
+  async findUserInUnit(userId: number, unitId: number): Promise<UserUnitRef | null> {
+    const query = `
+      SELECT id
+      FROM users
+      WHERE id = $1
+        AND organizational_unit_id = $2
+        AND is_active = TRUE
+      LIMIT 1
+    `;
+
+    const { rows } = await pool.query<UserUnitRef>(query, [userId, unitId]);
+    return rows[0] ?? null;
   }
 }

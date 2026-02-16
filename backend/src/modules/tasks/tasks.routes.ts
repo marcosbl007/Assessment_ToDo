@@ -14,6 +14,7 @@ const tasksController = new TasksController(tasksService);
 tasksRouter.use(authenticate);
 
 tasksRouter.get('/', requirePermission('TASK_VIEW_ALL'), tasksController.listApprovedTasks);
+tasksRouter.get('/unit-users', requirePermission('TASK_VIEW_ALL'), tasksController.listUnitUsers);
 tasksRouter.post('/requests/create', requirePermission('TASK_CREATE'), tasksController.createTaskRequest);
 tasksRouter.post('/tasks/:taskId/requests/update', requirePermission('TASK_EDIT_UNIT'), tasksController.updateTaskRequest);
 tasksRouter.post(
