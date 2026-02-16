@@ -5,13 +5,15 @@ import type { SupervisorProfileForm } from '../types';
 interface SupervisorSettingsPageProps {
   profileForm: SupervisorProfileForm;
   onProfileFormChange: (next: SupervisorProfileForm) => void;
-  onSave: () => void;
+  onSave: (next: SupervisorProfileForm) => Promise<void>;
+  onPasswordUpdate: (newPassword: string) => Promise<void>;
 }
 
 export const SupervisorSettingsPage = ({
   profileForm,
   onProfileFormChange,
   onSave,
+  onPasswordUpdate,
 }: SupervisorSettingsPageProps) => {
   const [passwordForm, setPasswordForm] = useState({
     newPassword: '',
@@ -20,7 +22,7 @@ export const SupervisorSettingsPage = ({
   const [passwordFeedback, setPasswordFeedback] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
-  const handlePasswordUpdate = () => {
+  const handlePasswordUpdate = async () => {
     setPasswordFeedback(null);
     setPasswordError(null);
 
@@ -39,8 +41,24 @@ export const SupervisorSettingsPage = ({
       return;
     }
 
-    setPasswordFeedback('Contraseña actualizada localmente.');
-    setPasswordForm({ newPassword: '', confirmPassword: '' });
+    try {
+      await onPasswordUpdate(passwordForm.newPassword);
+      setPasswordFeedback('Contraseña actualizada correctamente.');
+      setPasswordForm({ newPassword: '', confirmPassword: '' });
+    } catch (error: unknown) {
+      setPasswordError(error instanceof Error ? error.message : 'No se pudo actualizar la contraseña.');
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    setPasswordFeedback(null);
+    setPasswordError(null);
+
+    try {
+      await onSave(profileForm);
+    } catch (error: unknown) {
+      setPasswordError(error instanceof Error ? error.message : 'No se pudo actualizar el perfil.');
+    }
   };
 
   return (
@@ -93,7 +111,7 @@ export const SupervisorSettingsPage = ({
             <div className="sm:col-span-2">
               <button
                 type="button"
-                onClick={onSave}
+                onClick={() => void handleSaveProfile()}
                 className="mt-1 w-fit rounded-lg bg-[var(--dorado)] px-4 py-2 text-sm font-semibold text-[var(--blanco)]"
               >
                 Guardar perfil
@@ -146,7 +164,7 @@ export const SupervisorSettingsPage = ({
             <div className="sm:col-span-2">
               <button
                 type="button"
-                onClick={handlePasswordUpdate}
+                onClick={() => void handlePasswordUpdate()}
                 className="mt-1 w-fit rounded-lg bg-[var(--dorado)] px-4 py-2 text-sm font-semibold text-[var(--blanco)]"
               >
                 Actualizar contraseña

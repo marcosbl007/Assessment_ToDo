@@ -10,6 +10,7 @@ import type {
   DeleteTaskRequestInput,
   PendingChangeRequest,
   PublicTask,
+  SupervisorReportSnapshot,
   TaskPriority,
   TaskStatus,
   UnitUser,
@@ -94,6 +95,14 @@ export class TasksService {
     return this.tasksRepository.findUnitUsers(unitName);
   }
 
+  async getSupervisorReportSnapshot(unitName: string): Promise<SupervisorReportSnapshot> {
+    if (!unitName?.trim()) {
+      throw new HttpError(400, 'No se pudo determinar la unidad organizacional del supervisor.');
+    }
+
+    return this.tasksRepository.getSupervisorReportSnapshot(unitName);
+  }
+
   async decidePendingRequest(
     supervisorUserId: number,
     supervisorRole: RoleCode,
@@ -132,6 +141,14 @@ export class TasksService {
     this.assertValidPriority(payload.priority);
     const unitId = await this.resolveUserUnitId(unitName);
 
+    if (payload.assignedToUserId !== undefined && payload.assignedToUserId !== null) {
+      if (!Number.isInteger(payload.assignedToUserId) || payload.assignedToUserId <= 0) {
+        throw new HttpError(400, 'assignedToUserId inválido.');
+      }
+
+      await this.ensureAssigneeBelongsToUnit(payload.assignedToUserId, unitId);
+    }
+
     return this.tasksRepository.createChangeRequest({
       taskId: null,
       organizationalUnitId: unitId,
@@ -143,6 +160,7 @@ export class TasksService {
         description: payload.description?.trim() || null,
         priority: payload.priority ?? 'MEDIUM',
         dueDate: payload.dueDate ?? null,
+        assignedToUserId: payload.assignedToUserId ?? null,
       },
     });
   }

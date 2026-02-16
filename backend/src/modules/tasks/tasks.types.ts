@@ -15,6 +15,8 @@ export interface PublicTask {
   organizationalUnitName: string;
   createdBy: string;
   approvedBy: string | null;
+  assignedToUserId: number | null;
+  assignedTo: string | null;
 }
 
 export interface PendingChangeRequest {
@@ -47,6 +49,7 @@ export interface CreateTaskRequestInput {
   description?: string;
   priority?: TaskPriority;
   dueDate?: string;
+  assignedToUserId?: number | null;
   reason?: string;
 }
 
@@ -80,4 +83,36 @@ export interface UnitUser {
   name: string;
   email: string;
   role: 'STANDARD' | 'SUPERVISOR';
+}
+
+export interface TaskStatusDistribution {
+  completed: number;
+  inProgress: number;
+  pending: number;
+  rejected: number;
+}
+
+export interface TaskPriorityDistribution {
+  high: number;
+  medium: number;
+  low: number;
+}
+
+export interface ReportHistoryItem {
+  id: number;
+  taskTitle: string;
+  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  status: 'COMPLETED' | 'IN_PROGRESS' | 'REJECTED';
+  endDate: string;
+}
+
+export interface SupervisorReportSnapshot {
+  total: number;
+  completed: number;
+  inProgress: number;
+  pending: number;
+  pendingApprovals: number;
+  statusDistribution: TaskStatusDistribution;
+  priorityDistribution: TaskPriorityDistribution;
+  history: ReportHistoryItem[];
 }

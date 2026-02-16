@@ -6,10 +6,13 @@ import {
   deleteTaskRequest,
   getApprovedTasksRequest,
   getPendingRequestsRequest,
+  getSupervisorReportsSnapshotRequest,
   getUnitUsersRequest,
+  updatePasswordRequest,
+  updateProfileRequest,
   updateTaskRequest,
 } from '../../services';
-import type { PendingTaskChangeRequest, TaskItem, UnitUser, User } from '../../types';
+import type { PendingTaskChangeRequest, SupervisorReportSnapshot, TaskItem, UnitUser, User } from '../../types';
 import { SupervisorFiltersBar } from './components/molecules/SupervisorFiltersBar';
 import { SupervisorSectionHeader } from './components/molecules/SupervisorSectionHeader';
 import { NewTaskModal } from './components/organisms/NewTaskModal';
@@ -28,11 +31,32 @@ interface SupervisorDashboardPageProps {
 }
 
 export const SupervisorDashboardPage = ({ user, onLogout }: SupervisorDashboardPageProps) => {
+  const initialReportData: SupervisorReportSnapshot = {
+    total: 0,
+    completed: 0,
+    inProgress: 0,
+    pending: 0,
+    pendingApprovals: 0,
+    statusDistribution: {
+      completed: 0,
+      inProgress: 0,
+      pending: 0,
+      rejected: 0,
+    },
+    priorityDistribution: {
+      high: 0,
+      medium: 0,
+      low: 0,
+    },
+    history: [],
+  };
+
   const roleLabel = user.role === 'SUPERVISOR' ? 'Supervisor' : 'Usuario';
   const [activeSection, setActiveSection] = useState<SupervisorSection>('dashboard');
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [pendingRequests, setPendingRequests] = useState<PendingTaskChangeRequest[]>([]);
   const [unitUsers, setUnitUsers] = useState<UnitUser[]>([]);
+  const [reportData, setReportData] = useState<SupervisorReportSnapshot>(initialReportData);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -146,35 +170,22 @@ export const SupervisorDashboardPage = ({ user, onLogout }: SupervisorDashboardP
     return sorted;
   }, [pendingRequests, searchText, priorityFilter, sortBy]);
 
-  const reportData = useMemo(() => {
-    const total = tasks.length;
-    const completed = tasks.filter((task) => task.status === 'COMPLETED').length;
-    const inProgress = tasks.filter((task) => task.status === 'IN_PROGRESS').length;
-    const pending = tasks.filter((task) => task.status === 'PENDING').length;
-
-    return {
-      total,
-      completed,
-      inProgress,
-      pending,
-      pendingApprovals: pendingRequests.length,
-    };
-  }, [tasks, pendingRequests]);
-
   const loadSupervisorData = async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const [approvedTasks, pending, users] = await Promise.all([
+      const [approvedTasks, pending, users, reports] = await Promise.all([
         getApprovedTasksRequest(),
         getPendingRequestsRequest(),
         getUnitUsersRequest(),
+        getSupervisorReportsSnapshotRequest(),
       ]);
 
       setTasks(approvedTasks);
       setPendingRequests(pending);
       setUnitUsers(users);
+      setReportData(reports);
     } catch (loadError: unknown) {
       setError(loadError instanceof Error ? loadError.message : 'No se pudo cargar la información del supervisor.');
     } finally {
@@ -289,8 +300,29 @@ export const SupervisorDashboardPage = ({ user, onLogout }: SupervisorDashboardP
     }
   };
 
-  const handleProfileSave = () => {
-    setFeedback('Configuración del perfil actualizada localmente.');
+  const handleProfileSave = async (nextProfile: SupervisorProfileForm) => {
+    setError(null);
+    setFeedback(null);
+
+    const updatedUser = await updateProfileRequest({
+      name: nextProfile.nombre,
+      email: nextProfile.correo,
+    });
+
+    setProfileForm({
+      nombre: updatedUser.username,
+      correo: updatedUser.email,
+      unidad: updatedUser.unit,
+    });
+    setFeedback('Perfil actualizado correctamente.');
+  };
+
+  const handlePasswordUpdate = async (newPassword: string) => {
+    setError(null);
+    setFeedback(null);
+
+    await updatePasswordRequest({ newPassword });
+    setFeedback('Contraseña actualizada correctamente.');
   };
 
   const handlePriorityFilter = (priority: TaskItem['priority']) => {
@@ -385,6 +417,7 @@ export const SupervisorDashboardPage = ({ user, onLogout }: SupervisorDashboardP
                       profileForm={profileForm}
                       onProfileFormChange={setProfileForm}
                       onSave={handleProfileSave}
+                      onPasswordUpdate={handlePasswordUpdate}
                     />
                   )}
                 </>

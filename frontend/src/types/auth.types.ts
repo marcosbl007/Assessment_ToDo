@@ -48,3 +48,12 @@ export interface User {
   unit: string;
   role: 'STANDARD' | 'SUPERVISOR';
 }
+
+export interface UpdateProfileData {
+  name: string;
+  email: string;
+}
+
+export interface UpdatePasswordData {
+  newPassword: string;
+}

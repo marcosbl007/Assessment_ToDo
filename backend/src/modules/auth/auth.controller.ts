@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { HttpError } from '../../shared/errors/HttpError';
 import type { AuthenticatedRequest } from '../../shared/types/authenticated-request';
-import type { LoginRequest, RegisterRequest, SupervisorTokenRequest } from './auth.types';
+import type { LoginRequest, RegisterRequest, SupervisorTokenRequest, UpdatePasswordRequest, UpdateProfileRequest } from './auth.types';
 import type { AuthService } from './application/services/auth.service';
 
 export class AuthController {
@@ -54,12 +54,56 @@ export class AuthController {
       return;
     }
 
-    const permissions = await this.authService.getPermissions(authReq.authUser.id);
+    const [user, permissions] = await Promise.all([
+      this.authService.getUserById(authReq.authUser.id),
+      this.authService.getPermissions(authReq.authUser.id),
+    ]);
 
     res.status(200).json({
-      user: authReq.authUser,
+      user,
       permissions,
     });
+  };
+
+  updateProfile = async (req: Request, res: Response): Promise<void> => {
+    const authReq = req as AuthenticatedRequest;
+
+    if (!authReq.authUser) {
+      res.status(401).json({ message: 'No autenticado' });
+      return;
+    }
+
+    try {
+      const payload = req.body as UpdateProfileRequest;
+      const user = await this.authService.updateProfile(authReq.authUser.id, payload);
+
+      res.status(200).json({
+        message: 'Perfil actualizado correctamente.',
+        user,
+      });
+    } catch (error) {
+      this.handleAuthError(error, res);
+    }
+  };
+
+  updatePassword = async (req: Request, res: Response): Promise<void> => {
+    const authReq = req as AuthenticatedRequest;
+
+    if (!authReq.authUser) {
+      res.status(401).json({ message: 'No autenticado' });
+      return;
+    }
+
+    try {
+      const payload = req.body as UpdatePasswordRequest;
+      await this.authService.updatePassword(authReq.authUser.id, payload);
+
+      res.status(200).json({
+        message: 'Contraseña actualizada correctamente.',
+      });
+    } catch (error) {
+      this.handleAuthError(error, res);
+    }
   };
 
   private handleAuthError(error: unknown, res: Response): void {

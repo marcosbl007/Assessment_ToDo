@@ -1,15 +1,8 @@
 import { FaCheckCircle, FaClock, FaTasks } from 'react-icons/fa';
-
-interface ReportData {
-  total: number;
-  completed: number;
-  inProgress: number;
-  pending: number;
-  pendingApprovals: number;
-}
+import type { SupervisorReportSnapshot } from '../../../types';
 
 interface SupervisorReportsPageProps {
-  reportData: ReportData;
+  reportData: SupervisorReportSnapshot;
 }
 
 type RingSegment = {
@@ -18,52 +11,28 @@ type RingSegment = {
   color: string;
 };
 
-type HistoryRow = {
-  task: string;
-  priority: 'Alta' | 'Media' | 'Baja';
-  status: 'Completada' | 'En Progreso' | 'Rechazada';
-  endDate: string;
+const priorityBadgeClass: Record<'HIGH' | 'MEDIUM' | 'LOW', string> = {
+  HIGH: 'bg-[#2D1D1D] text-[#E99595]',
+  MEDIUM: 'bg-[#2A2418] text-[#D6B567]',
+  LOW: 'bg-[#1F2A1C] text-[#95E28F]',
 };
 
-const summaryCards = [
-  { label: 'Total Tareas', value: 7, sub: 'Total Tareas', tone: 'text-[#F4CE74]', icon: FaTasks },
-  { label: 'Completadas', value: 3, sub: 'Completadas', tone: 'text-[#95E28F]', icon: FaCheckCircle },
-  { label: 'En Progreso', value: 2, sub: 'En Progreso', tone: 'text-[#8ED0FF]', icon: FaClock },
-];
-
-const currentStatusSegments: RingSegment[] = [
-  { label: 'Completadas', value: 3, color: '#56D3FF' },
-  { label: 'En progreso', value: 2, color: '#F3C75F' },
-  { label: 'Pendientes', value: 1, color: '#95E28F' },
-  { label: 'Rechazadas', value: 1, color: '#E77F72' },
-];
-
-const resolvedPrioritySegments: RingSegment[] = [
-  { label: 'Prioridad Alta', value: 2, color: '#E77F72' },
-  { label: 'Prioridad Media', value: 1, color: '#F3C75F' },
-  { label: 'Prioridad Baja', value: 0, color: '#95E28F' },
-  { label: 'Roja', value: 0, color: '#4D617A' },
-];
-
-const historyRows: HistoryRow[] = [
-  { task: 'Revisión de CVs', priority: 'Alta', status: 'Completada', endDate: '24 Abr 2024' },
-  { task: 'Contratar nuevo Analista', priority: 'Alta', status: 'En Progreso', endDate: '30 Abr 2024' },
-  { task: 'Actualizar Manual del Em', priority: 'Media', status: 'Completada', endDate: '15 Abr 2024' },
-  { task: 'Auditoría de Cumplimiento', priority: 'Media', status: 'En Progreso', endDate: '30 Abr 2024' },
-  { task: 'Actualizar Políticas de RR', priority: 'Baja', status: 'Completada', endDate: '24 Abr 2024' },
-  { task: 'Revisión Evaluaciones de D', priority: 'Baja', status: 'Rechazada', endDate: '24 Abr 2024' },
-];
-
-const priorityBadgeClass: Record<HistoryRow['priority'], string> = {
-  Alta: 'bg-[#2A2418] text-[#F3C75F]',
-  Media: 'bg-[#2A2418] text-[#D6B567]',
-  Baja: 'bg-[#1F2A1C] text-[#95E28F]',
+const statusBadgeClass: Record<'COMPLETED' | 'IN_PROGRESS' | 'REJECTED', string> = {
+  COMPLETED: 'bg-[#1B2E2A] text-[#9BE2B3]',
+  IN_PROGRESS: 'bg-[#1B2833] text-[#8ED0FF]',
+  REJECTED: 'bg-[#2D1D1D] text-[#E99595]',
 };
 
-const statusBadgeClass: Record<HistoryRow['status'], string> = {
-  Completada: 'bg-[#1B2E2A] text-[#9BE2B3]',
-  'En Progreso': 'bg-[#1B2833] text-[#8ED0FF]',
-  Rechazada: 'bg-[#2D1D1D] text-[#E99595]',
+const priorityLabelMap: Record<'HIGH' | 'MEDIUM' | 'LOW', string> = {
+  HIGH: 'Alta',
+  MEDIUM: 'Media',
+  LOW: 'Baja',
+};
+
+const statusLabelMap: Record<'COMPLETED' | 'IN_PROGRESS' | 'REJECTED', string> = {
+  COMPLETED: 'Completada',
+  IN_PROGRESS: 'En Progreso',
+  REJECTED: 'Rechazada',
 };
 
 const buildRingGradient = (segments: RingSegment[]): string => {
@@ -123,7 +92,38 @@ const RingChart = ({ title, segments }: { title: string; segments: RingSegment[]
   );
 };
 
-export const SupervisorReportsPage = ({ reportData: _reportData }: SupervisorReportsPageProps) => {
+export const SupervisorReportsPage = ({ reportData }: SupervisorReportsPageProps) => {
+  const summaryCards = [
+    { label: 'Total Tareas', value: reportData.total, sub: 'Total Tareas', tone: 'text-[#F4CE74]', icon: FaTasks },
+    {
+      label: 'Completadas',
+      value: reportData.completed,
+      sub: 'Completadas',
+      tone: 'text-[#95E28F]',
+      icon: FaCheckCircle,
+    },
+    {
+      label: 'En Progreso',
+      value: reportData.inProgress,
+      sub: 'En Progreso',
+      tone: 'text-[#8ED0FF]',
+      icon: FaClock,
+    },
+  ];
+
+  const currentStatusSegments: RingSegment[] = [
+    { label: 'Completadas', value: reportData.statusDistribution.completed, color: '#56D3FF' },
+    { label: 'En progreso', value: reportData.statusDistribution.inProgress, color: '#F3C75F' },
+    { label: 'Pendientes', value: reportData.statusDistribution.pending, color: '#95E28F' },
+    { label: 'Rechazadas', value: reportData.statusDistribution.rejected, color: '#E77F72' },
+  ];
+
+  const resolvedPrioritySegments: RingSegment[] = [
+    { label: 'Prioridad Alta', value: reportData.priorityDistribution.high, color: '#E77F72' },
+    { label: 'Prioridad Media', value: reportData.priorityDistribution.medium, color: '#F3C75F' },
+    { label: 'Prioridad Baja', value: reportData.priorityDistribution.low, color: '#95E28F' },
+  ];
+
   return (
     <div className="grid grid-cols-1 gap-3 xl:grid-cols-4 xl:items-start">
       <div className="space-y-3 xl:col-span-3">
@@ -178,28 +178,37 @@ export const SupervisorReportsPage = ({ reportData: _reportData }: SupervisorRep
                   </tr>
                 </thead>
                 <tbody>
-                  {historyRows.map((row) => (
-                    <tr key={`${row.task}-${row.endDate}`} className="border-b border-white/5 text-[var(--blanco)]/85">
-                      <td className="py-2.5 pr-2">{row.task}</td>
+                  {reportData.history.map((row) => (
+                    <tr key={`${row.id}-${row.endDate}`} className="border-b border-white/5 text-[var(--blanco)]/85">
+                      <td className="py-2.5 pr-2">{row.taskTitle}</td>
                       <td className="py-2.5">
                         <span className={`rounded-md px-2 py-1 text-[11px] font-semibold ${priorityBadgeClass[row.priority]}`}>
-                          {row.priority}
+                          {priorityLabelMap[row.priority]}
                         </span>
                       </td>
                       <td className="py-2.5">
                         <span className={`rounded-md px-2 py-1 text-[11px] font-semibold ${statusBadgeClass[row.status]}`}>
-                          {row.status}
+                          {statusLabelMap[row.status]}
                         </span>
                       </td>
-                      <td className="py-2.5 text-right text-[var(--blanco)]/75">{row.endDate}</td>
+                      <td className="py-2.5 text-right text-[var(--blanco)]/75">
+                        {new Date(row.endDate).toLocaleDateString('es-ES')}
+                      </td>
                     </tr>
                   ))}
+                  {reportData.history.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="py-3 text-center text-[var(--blanco)]/60">
+                        Sin historial de solicitudes procesadas.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-6 text-xs text-[var(--blanco)]/75">
-              {resolvedPrioritySegments.slice(0, 3).map((segment) => (
+              {resolvedPrioritySegments.map((segment) => (
                 <div key={segment.label} className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: segment.color }} />
                   <span>{segment.label}</span>

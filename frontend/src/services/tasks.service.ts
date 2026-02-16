@@ -2,6 +2,7 @@ import type {
   CreateTaskRequestData,
   DecisionTaskRequestData,
   PendingTaskChangeRequest,
+  SupervisorReportSnapshot,
   TaskItem,
   UnitUser,
   UpdateTaskRequestData,
@@ -137,4 +138,18 @@ export async function decideTaskRequest(requestId: number, data: DecisionTaskReq
   if (!response.ok) {
     return parseError(response);
   }
+}
+
+export async function getSupervisorReportsSnapshotRequest(): Promise<SupervisorReportSnapshot> {
+  const response = await fetch(`${API_BASE_URL}/api/tasks/reports/snapshot`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    return parseError(response);
+  }
+
+  const payload = (await response.json()) as { report: SupervisorReportSnapshot };
+  return payload.report;
 }

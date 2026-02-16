@@ -158,6 +158,22 @@ export class TasksController {
     }
   };
 
+  getSupervisorReports = async (req: Request, res: Response): Promise<void> => {
+    const authReq = req as AuthenticatedRequest;
+
+    if (!authReq.authUser) {
+      res.status(401).json({ message: 'No autenticado' });
+      return;
+    }
+
+    try {
+      const report = await this.tasksService.getSupervisorReportSnapshot(authReq.authUser.unit);
+      res.status(200).json({ report });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  };
+
   decideRequest = async (req: Request, res: Response): Promise<void> => {
     const authReq = req as AuthenticatedRequest;
 

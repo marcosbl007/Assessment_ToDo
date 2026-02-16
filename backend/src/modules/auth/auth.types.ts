@@ -35,3 +35,12 @@ export interface AuthUser {
   organizationalUnit: string;
   role: 'STANDARD' | 'SUPERVISOR';
 }
+
+export interface UpdateProfileRequest {
+  name: string;
+  email: string;
+}
+
+export interface UpdatePasswordRequest {
+  newPassword: string;
+}

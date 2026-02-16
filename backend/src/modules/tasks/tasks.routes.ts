@@ -28,6 +28,7 @@ tasksRouter.get(
   requirePermission('TASK_APPROVE_CHANGES'),
   tasksController.listPendingRequests,
 );
+tasksRouter.get('/reports/snapshot', requirePermission('TASK_VIEW_ALL'), tasksController.getSupervisorReports);
 tasksRouter.post(
   '/change-requests/:requestId/decision',
   requirePermission('TASK_APPROVE_CHANGES'),

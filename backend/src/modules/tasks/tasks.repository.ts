@@ -5,6 +5,10 @@ import type {
   ChangeRequestDecisionResult,
   PendingChangeRequest,
   PublicTask,
+  ReportHistoryItem,
+  SupervisorReportSnapshot,
+  TaskPriorityDistribution,
+  TaskStatusDistribution,
   UnitUser,
 } from './tasks.types';
 
@@ -36,7 +40,9 @@ export class TasksRepository {
         organizational_unit_code AS "organizationalUnitCode",
         organizational_unit_name AS "organizationalUnitName",
         created_by AS "createdBy",
-        approved_by AS "approvedBy"
+        approved_by AS "approvedBy",
+        assigned_to_user_id AS "assignedToUserId",
+        assigned_to AS "assignedTo"
       FROM vw_tasks_public
       ORDER BY created_at DESC
     `;
@@ -201,5 +207,103 @@ export class TasksRepository {
 
     const { rows } = await pool.query<UserUnitRef>(query, [userId, unitId]);
     return rows[0] ?? null;
+  }
+
+  async getSupervisorReportSnapshot(unitName: string): Promise<SupervisorReportSnapshot> {
+    const summaryQuery = `
+      SELECT
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE t.status = 'COMPLETED')::int AS "completed",
+        COUNT(*) FILTER (WHERE t.status = 'IN_PROGRESS')::int AS "inProgress",
+        COUNT(*) FILTER (WHERE t.status = 'PENDING')::int AS "pending"
+      FROM tasks t
+      INNER JOIN organizational_units ou ON ou.id = t.organizational_unit_id
+      WHERE t.is_active = TRUE
+        AND lower(ou.name) = lower($1)
+    `;
+
+    const pendingApprovalsQuery = `
+      SELECT COUNT(*)::int AS count
+      FROM task_change_requests r
+      INNER JOIN organizational_units ou ON ou.id = r.organizational_unit_id
+      WHERE r.status = 'PENDING'
+        AND lower(ou.name) = lower($1)
+    `;
+
+    const rejectedCountQuery = `
+      SELECT COUNT(*)::int AS count
+      FROM task_change_requests r
+      INNER JOIN organizational_units ou ON ou.id = r.organizational_unit_id
+      WHERE r.status = 'REJECTED'
+        AND lower(ou.name) = lower($1)
+    `;
+
+    const priorityQuery = `
+      SELECT
+        COUNT(*) FILTER (WHERE t.priority = 'HIGH')::int AS high,
+        COUNT(*) FILTER (WHERE t.priority = 'MEDIUM')::int AS medium,
+        COUNT(*) FILTER (WHERE t.priority = 'LOW')::int AS low
+      FROM tasks t
+      INNER JOIN organizational_units ou ON ou.id = t.organizational_unit_id
+      WHERE t.is_active = TRUE
+        AND t.status = 'COMPLETED'
+        AND lower(ou.name) = lower($1)
+    `;
+
+    const historyQuery = `
+      SELECT
+        COALESCE(r.task_id, t.id)::bigint AS id,
+        COALESCE(t.title, r.payload ->> 'title', 'Tarea sin título') AS "taskTitle",
+        COALESCE(t.priority::text, (r.payload ->> 'priority'), 'MEDIUM')::text AS priority,
+        CASE
+          WHEN r.status = 'REJECTED' THEN 'REJECTED'
+          WHEN t.status = 'COMPLETED' THEN 'COMPLETED'
+          WHEN t.status = 'IN_PROGRESS' THEN 'IN_PROGRESS'
+          ELSE 'IN_PROGRESS'
+        END::text AS status,
+        COALESCE(r.reviewed_at, t.updated_at, t.created_at)::timestamptz AS "endDate"
+      FROM task_change_requests r
+      LEFT JOIN tasks t ON t.id = r.task_id
+      INNER JOIN organizational_units ou ON ou.id = r.organizational_unit_id
+      WHERE r.status IN ('APPROVED', 'REJECTED')
+        AND lower(ou.name) = lower($1)
+      ORDER BY COALESCE(r.reviewed_at, t.updated_at, t.created_at) DESC
+      LIMIT 12
+    `;
+
+    const [summaryResult, pendingApprovalsResult, rejectedResult, priorityResult, historyResult] = await Promise.all([
+      pool.query<{ total: number; completed: number; inProgress: number; pending: number }>(summaryQuery, [unitName.trim()]),
+      pool.query<{ count: number }>(pendingApprovalsQuery, [unitName.trim()]),
+      pool.query<{ count: number }>(rejectedCountQuery, [unitName.trim()]),
+      pool.query<TaskPriorityDistribution>(priorityQuery, [unitName.trim()]),
+      pool.query<ReportHistoryItem>(historyQuery, [unitName.trim()]),
+    ]);
+
+    const summary = summaryResult.rows[0] ?? { total: 0, completed: 0, inProgress: 0, pending: 0 };
+    const pendingApprovals = pendingApprovalsResult.rows[0]?.count ?? 0;
+    const rejected = rejectedResult.rows[0]?.count ?? 0;
+    const priority = priorityResult.rows[0] ?? { high: 0, medium: 0, low: 0 };
+
+    const statusDistribution: TaskStatusDistribution = {
+      completed: summary.completed,
+      inProgress: summary.inProgress,
+      pending: summary.pending,
+      rejected,
+    };
+
+    return {
+      total: summary.total,
+      completed: summary.completed,
+      inProgress: summary.inProgress,
+      pending: summary.pending,
+      pendingApprovals,
+      statusDistribution,
+      priorityDistribution: {
+        high: priority.high,
+        medium: priority.medium,
+        low: priority.low,
+      },
+      history: historyResult.rows,
+    };
   }
 }

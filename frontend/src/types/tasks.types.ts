@@ -15,6 +15,8 @@ export interface TaskItem {
   organizationalUnitName: string;
   createdBy: string;
   approvedBy: string | null;
+  assignedToUserId: number | null;
+  assignedTo: string | null;
 }
 
 export interface PendingTaskChangeRequest {
@@ -60,4 +62,32 @@ export interface UpdateTaskRequestData {
 export interface DecisionTaskRequestData {
   decision: ApprovalDecision;
   reviewComment?: string;
+}
+
+export interface SupervisorReportHistoryItem {
+  id: number;
+  taskTitle: string;
+  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  status: 'COMPLETED' | 'IN_PROGRESS' | 'REJECTED';
+  endDate: string;
+}
+
+export interface SupervisorReportSnapshot {
+  total: number;
+  completed: number;
+  inProgress: number;
+  pending: number;
+  pendingApprovals: number;
+  statusDistribution: {
+    completed: number;
+    inProgress: number;
+    pending: number;
+    rejected: number;
+  };
+  priorityDistribution: {
+    high: number;
+    medium: number;
+    low: number;
+  };
+  history: SupervisorReportHistoryItem[];
 }
