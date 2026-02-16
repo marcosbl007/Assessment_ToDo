@@ -5,15 +5,18 @@
 import { useState } from 'react';
 import { LoginForm } from '../../components/molecules';
 import { AuthLayout } from '../../components/organisms';
-import type { LoginFormData } from '../../types';
+import type { LoginFormData, User } from '../../types';
+import { loginRequest, saveSession } from '../../services';
 
 /** Contrato de navegación a nivel de página. */
 interface LoginPageProps {
   /** Callback para cambiar a la vista de registro. */
   onGoToRegister?: () => void;
+  /** Callback para notificar login exitoso al contenedor principal. */
+  onLoginSuccess?: (user: User) => void;
 }
 
-export const LoginPage = ({ onGoToRegister }: LoginPageProps) => {
+export const LoginPage = ({ onGoToRegister, onLoginSuccess }: LoginPageProps) => {
   /** Indica solicitud pendiente de auth y deshabilita interacciones de envío. */
   const [isLoading, setIsLoading] = useState(false);
   /** Error legible para usuario cuando falla el inicio de sesión. */
@@ -27,16 +30,15 @@ export const LoginPage = ({ onGoToRegister }: LoginPageProps) => {
     setError(null);
 
     try {
-      // TODO: Reemplazar con servicio real de autenticación en backend.
-      console.log('Login attempt:', data);
-      
-      // Simulación de latencia de red.
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // TODO: Reemplazar alert por navegación al dashboard tras autenticación.
-      alert('Login exitoso! (implementar navegación)');
-    } catch (err) {
-      setError('Error al iniciar sesión. Verifica tus credenciales.');
+      const result = await loginRequest(data);
+      saveSession(result.token);
+      onLoginSuccess?.(result.user);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Error al iniciar sesión. Verifica tus credenciales.');
+      }
     } finally {
       setIsLoading(false);
     }

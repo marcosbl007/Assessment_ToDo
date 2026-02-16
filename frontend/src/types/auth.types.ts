@@ -17,6 +17,19 @@ export interface RegisterFormData {
   confirmPassword: string;
   organizationalUnit: string;
   role: string;
+  supervisorToken?: string;
+}
+
+export interface SupervisorTokenRequestData {
+  name: string;
+  email: string;
+  organizationalUnit: string;
+}
+
+export interface SupervisorTokenRequestResult {
+  message: string;
+  delivery: 'ethereal';
+  previewUrl: string;
 }
 
 /** Estructura mínima de estado auth para escenarios de gestión de estado. */

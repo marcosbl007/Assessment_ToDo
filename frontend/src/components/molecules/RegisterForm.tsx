@@ -4,7 +4,7 @@
  */
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import type { RegisterFormData } from '../../types';
+import type { RegisterFormData, SupervisorTokenRequestResult } from '../../types';
 import { Input, Button } from '../atoms';
 
 interface RegisterFormProps {
@@ -16,6 +16,12 @@ interface RegisterFormProps {
   error?: string;
   /** Acción opcional para volver a la pantalla de login. */
   onGoToLogin?: () => void;
+  /** Solicita token de registro cuando el rol seleccionado es supervisor. */
+  onRequestSupervisorToken?: (data: {
+    name: string;
+    email: string;
+    organizationalUnit: string;
+  }) => Promise<SupervisorTokenRequestResult>;
 }
 
 /** Unidades organizacionales predefinidas para el alcance actual (MVP). */
@@ -23,7 +29,13 @@ const units = ['Recursos Humanos (RRHH)', 'Finanzas', 'Business Intelligence (BI
 /** Roles de usuario predefinidos, alineados al enunciado. */
 const roles = ['Usuario estándar', 'Usuario supervisor'];
 
-export const RegisterForm = ({ onSubmit, isLoading = false, error, onGoToLogin }: RegisterFormProps) => {
+export const RegisterForm = ({
+  onSubmit,
+  isLoading = false,
+  error,
+  onGoToLogin,
+  onRequestSupervisorToken,
+}: RegisterFormProps) => {
   /** Estado controlado para todos los campos del formulario. */
   const [formData, setFormData] = useState<RegisterFormData>({
     name: '',
@@ -32,9 +44,18 @@ export const RegisterForm = ({ onSubmit, isLoading = false, error, onGoToLogin }
     confirmPassword: '',
     organizationalUnit: '',
     role: '',
+    supervisorToken: '',
   });
   /** Mensaje de validación local (previo al envío). */
   const [localError, setLocalError] = useState<string | null>(null);
+  /** Mensaje informativo tras solicitar token de supervisor. */
+  const [supervisorTokenMessage, setSupervisorTokenMessage] = useState<string | null>(null);
+  /** URL a visitar para obtener el token en Ethereal. */
+  const [supervisorTokenUrl, setSupervisorTokenUrl] = useState<string | null>(null);
+  /** Estado de carga para evitar dobles clics al solicitar token. */
+  const [isRequestingToken, setIsRequestingToken] = useState(false);
+
+  const isSupervisorRole = formData.role === 'Usuario supervisor';
 
   /**
    * Ejecuta validaciones básicas antes de delegar el payload al padre.
@@ -53,7 +74,49 @@ export const RegisterForm = ({ onSubmit, isLoading = false, error, onGoToLogin }
       return;
     }
 
+    if (isSupervisorRole && !formData.supervisorToken?.trim()) {
+      setLocalError('Para rol supervisor debes ingresar el token de autorización.');
+      return;
+    }
+
     onSubmit(formData);
+  };
+
+  const handleRequestSupervisorToken = async () => {
+    setLocalError(null);
+    setSupervisorTokenMessage(null);
+    setSupervisorTokenUrl(null);
+
+    if (!formData.name.trim() || !formData.email.trim() || !formData.organizationalUnit.trim()) {
+      setLocalError('Completa nombre, email y unidad antes de solicitar token de supervisor.');
+      return;
+    }
+
+    if (!onRequestSupervisorToken) {
+      setLocalError('No está disponible la solicitud de token en este entorno.');
+      return;
+    }
+
+    setIsRequestingToken(true);
+
+    try {
+      const result = await onRequestSupervisorToken({
+        name: formData.name,
+        email: formData.email,
+        organizationalUnit: formData.organizationalUnit,
+      });
+
+      setSupervisorTokenMessage(result.message);
+      setSupervisorTokenUrl(result.previewUrl);
+    } catch (requestError: unknown) {
+      if (requestError instanceof Error) {
+        setLocalError(requestError.message);
+      } else {
+        setLocalError('No se pudo solicitar el token de supervisor.');
+      }
+    } finally {
+      setIsRequestingToken(false);
+    }
   };
 
   return (
@@ -133,7 +196,15 @@ export const RegisterForm = ({ onSubmit, isLoading = false, error, onGoToLogin }
         <label className="block text-[var(--dorado)] text-sm mb-2 font-medium">Rol</label>
         <select
           value={formData.role}
-          onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+          onChange={(e) => {
+            const nextRole = e.target.value;
+            setFormData((current) => ({
+              ...current,
+              role: nextRole,
+              supervisorToken: nextRole === 'Usuario supervisor' ? current.supervisorToken : '',
+            }));
+            setSupervisorTokenMessage(null);
+          }}
           className="w-full px-4 py-2.5 bg-transparent border border-[var(--dorado)]/35 rounded-md text-[var(--blanco)] focus:outline-none focus:border-[var(--dorado)] transition-all"
           required
         >
@@ -145,6 +216,47 @@ export const RegisterForm = ({ onSubmit, isLoading = false, error, onGoToLogin }
           ))}
         </select>
       </div>
+
+      {isSupervisorRole && (
+        <>
+          <div className="max-w-[240px] mx-auto">
+            <div className="mb-2 flex items-center justify-between">
+              <label className="block text-[var(--dorado)] text-sm font-medium">Token de Supervisor</label>
+              <button
+                type="button"
+                onClick={handleRequestSupervisorToken}
+                disabled={isRequestingToken || isLoading}
+                className="text-[11px] font-semibold text-[var(--dorado)]/90 hover:text-[var(--dorado)] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isRequestingToken ? 'Solicitando...' : 'Solicitar token'}
+              </button>
+            </div>
+
+            <Input
+              type="text"
+              placeholder="Ingresa token autorizado"
+              value={formData.supervisorToken ?? ''}
+              onChange={(e) => setFormData({ ...formData, supervisorToken: e.target.value })}
+              required
+            />
+
+            {supervisorTokenMessage && (
+              <p className="mt-2 text-[11px] text-[var(--blanco)]/75">{supervisorTokenMessage}</p>
+            )}
+
+            {supervisorTokenUrl && (
+              <a
+                href={supervisorTokenUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-1 inline-block text-[11px] text-[var(--dorado)] hover:text-[var(--dorado)]/80"
+              >
+                Visite la URL para el token
+              </a>
+            )}
+          </div>
+        </>
+      )}
 
       <div className="pt-3 max-w-[160px] mx-auto">
         <Button type="submit" variant="primary" fullWidth isLoading={isLoading} className="text-base font-bold tracking-wide">
