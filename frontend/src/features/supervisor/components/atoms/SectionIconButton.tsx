@@ -1,5 +1,10 @@
+/**
+ * - Botón atómico de navegación para sidebar del supervisor.
+ * - Soporta estado activo, modo compacto y badge numérico opcional.
+ */
 import type { ReactNode } from 'react';
 
+/** Props visuales y de interacción del botón de sección. */
 interface SectionIconButtonProps {
   active: boolean;
   compact?: boolean;
@@ -23,6 +28,7 @@ export const SectionIconButton = ({ active, compact = false, title, icon, onClic
           : 'text-[var(--blanco)]/55 hover:bg-white/10 hover:text-[var(--blanco)]'
       }`}
     >
+      {/** Indicadores visuales del estado activo (barra + brillo lateral). */}
       {active && (
         <>
           <span className="pointer-events-none absolute right-0 top-1/2 h-9 w-[2px] -translate-y-1/2 rounded-l bg-[var(--dorado)] sm:h-10" />
@@ -38,6 +44,7 @@ export const SectionIconButton = ({ active, compact = false, title, icon, onClic
 
       <span className="relative z-10">{icon}</span>
 
+      {/** Badge opcional para conteos pendientes (ej. notificaciones). */}
       {badgeCount && badgeCount > 0 ? (
         <span className="absolute right-0 top-0 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
           {badgeCount}

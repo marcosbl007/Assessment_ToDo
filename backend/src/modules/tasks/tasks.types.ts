@@ -1,3 +1,7 @@
+/**
+ * - Contratos tipados del dominio de tareas y solicitudes de cambio.
+ * - Se comparte entre controller, service y repository.
+ */
 export type ApprovalDecision = 'APPROVED' | 'REJECTED';
 export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';

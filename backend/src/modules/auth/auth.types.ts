@@ -1,3 +1,7 @@
+/**
+ * - Contratos de entrada/salida del módulo de autenticación.
+ * - Se reutilizan en controller, service y repositorio.
+ */
 export interface RegisterRequest {
   username?: string;
   name: string;

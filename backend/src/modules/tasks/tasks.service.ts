@@ -1,3 +1,7 @@
+/**
+ * - Reglas de negocio del flujo de tareas para estándar y supervisor.
+ * - Valida payloads, permisos funcionales y coordina operaciones del repositorio.
+ */
 import { HttpError } from '../../shared/errors/HttpError';
 import type { RoleCode } from '../auth/application/strategies/role.strategy';
 import { TasksRepository } from './tasks.repository';
@@ -27,6 +31,7 @@ export class TasksService {
 
   private readonly allowedApprovalStatuses: ApprovalStatus[] = ['PENDING', 'APPROVED', 'REJECTED'];
 
+  /** Valida prioridad permitida en payload. */
   private assertValidPriority(priority?: string): void {
     if (!priority) {
       return;
@@ -37,6 +42,7 @@ export class TasksService {
     }
   }
 
+  /** Valida estado permitido en payload. */
   private assertValidStatus(status?: string): void {
     if (!status) {
       return;
@@ -47,6 +53,7 @@ export class TasksService {
     }
   }
 
+  /** Resuelve id de unidad a partir del nombre en sesión. */
   private async resolveUserUnitId(unitName: string): Promise<number> {
     const unitId = await this.tasksRepository.findUnitIdByName(unitName);
     if (!unitId) {
@@ -56,6 +63,7 @@ export class TasksService {
     return unitId;
   }
 
+  /** Asegura que la tarea pertenezca a la unidad del solicitante. */
   private async ensureTaskBelongsToUnit(taskId: number, unitId: number): Promise<void> {
     const task = await this.tasksRepository.findTaskById(taskId);
     if (!task) {
@@ -67,6 +75,7 @@ export class TasksService {
     }
   }
 
+  /** Asegura que el asignado exista y sea activo en la misma unidad. */
   private async ensureAssigneeBelongsToUnit(assigneeId: number, unitId: number): Promise<void> {
     const user = await this.tasksRepository.findUserInUnit(assigneeId, unitId);
     if (!user) {
@@ -74,6 +83,7 @@ export class TasksService {
     }
   }
 
+  /** Autoaprueba solicitudes cuando quien ejecuta es supervisor. */
   private async autoApproveIfSupervisor(
     requesterRole: RoleCode,
     requesterUserId: number,
@@ -91,6 +101,7 @@ export class TasksService {
     );
   }
 
+  /** Obtiene tareas visibles por rol/unidad. */
   async getApprovedTasks(unitName: string, role: RoleCode, userId: number): Promise<PublicTask[]> {
     if (!unitName?.trim()) {
       throw new HttpError(400, 'No se pudo determinar la unidad organizacional del usuario.');
@@ -100,6 +111,7 @@ export class TasksService {
     return this.tasksRepository.findApprovedTasksByUnit(unitName, assignedFilter);
   }
 
+  /** Obtiene solicitudes propias con filtro de estado opcional. */
   async getOwnChangeRequests(
     userId: number,
     unitName: string,
@@ -116,6 +128,7 @@ export class TasksService {
     return this.tasksRepository.findOwnChangeRequests(userId, unitName, status);
   }
 
+  /** Obtiene solicitudes pendientes para supervisor de unidad. */
   async getPendingRequestsForSupervisor(unitName: string, role: RoleCode): Promise<PendingChangeRequest[]> {
     if (role !== 'SUPERVISOR') {
       throw new HttpError(403, 'Solo un supervisor puede consultar solicitudes pendientes.');
@@ -128,6 +141,7 @@ export class TasksService {
     return this.tasksRepository.findPendingChangeRequestsByUnit(unitName);
   }
 
+  /** Obtiene catálogo de usuarios activos de la unidad. */
   async getUnitUsers(unitName: string): Promise<UnitUser[]> {
     if (!unitName?.trim()) {
       throw new HttpError(400, 'No se pudo determinar la unidad organizacional del usuario.');
@@ -136,6 +150,7 @@ export class TasksService {
     return this.tasksRepository.findUnitUsers(unitName);
   }
 
+  /** Obtiene snapshot de reportes para vistas de analytics. */
   async getSupervisorReportSnapshot(unitName: string): Promise<SupervisorReportSnapshot> {
     if (!unitName?.trim()) {
       throw new HttpError(400, 'No se pudo determinar la unidad organizacional del supervisor.');
@@ -144,6 +159,7 @@ export class TasksService {
     return this.tasksRepository.getSupervisorReportSnapshot(unitName);
   }
 
+  /** Aplica decisión sobre solicitud pendiente con validaciones de rol/estado. */
   async decidePendingRequest(
     supervisorUserId: number,
     supervisorRole: RoleCode,
@@ -170,12 +186,14 @@ export class TasksService {
     );
   }
 
+  /** Crea tarea o solicitud de creación según rol del solicitante. */
   async requestTaskCreation(
     userId: number,
     role: RoleCode,
     unitName: string,
     payload: CreateTaskRequestInput,
   ): Promise<ChangeRequestCreated> {
+    /** Validaciones mínimas de entrada para alta de tarea. */
     if (!payload.title?.trim()) {
       throw new HttpError(400, 'title es obligatorio para crear una tarea.');
     }
@@ -183,6 +201,7 @@ export class TasksService {
     this.assertValidPriority(payload.priority);
     const unitId = await this.resolveUserUnitId(unitName);
 
+    /** Si hay asignación explícita, valida id y pertenencia a la unidad. */
     if (payload.assignedToUserId !== undefined && payload.assignedToUserId !== null) {
       if (!Number.isInteger(payload.assignedToUserId) || payload.assignedToUserId <= 0) {
         throw new HttpError(400, 'assignedToUserId inválido.');
@@ -191,6 +210,7 @@ export class TasksService {
       await this.ensureAssigneeBelongsToUnit(payload.assignedToUserId, unitId);
     }
 
+    /** Supervisor crea y aprueba directamente sin pasar por cola de solicitudes. */
     if (role === 'SUPERVISOR') {
       const createdTaskId = await this.tasksRepository.createApprovedTaskDirect({
         organizationalUnitId: unitId,
@@ -210,6 +230,7 @@ export class TasksService {
       };
     }
 
+    /** Usuario estándar: persiste una solicitud pendiente para revisión de supervisor. */
     const request = await this.tasksRepository.createChangeRequest({
       taskId: null,
       organizationalUnitId: unitId,
@@ -228,6 +249,7 @@ export class TasksService {
     return request;
   }
 
+  /** Registra actualización (o solicitud) de campos permitidos de una tarea. */
   async requestTaskUpdate(
     userId: number,
     role: RoleCode,
@@ -235,6 +257,7 @@ export class TasksService {
     taskId: number,
     payload: UpdateTaskRequestInput,
   ): Promise<ChangeRequestCreated> {
+    /** Valida identificador y valores enumerados permitidos. */
     if (!Number.isInteger(taskId) || taskId <= 0) {
       throw new HttpError(400, 'taskId inválido.');
     }
@@ -256,6 +279,7 @@ export class TasksService {
     const unitId = await this.resolveUserUnitId(unitName);
     await this.ensureTaskBelongsToUnit(taskId, unitId);
 
+    /** Si cambia asignación, valida que el destino pertenezca a la misma unidad. */
     if (payload.assignedToUserId !== undefined && payload.assignedToUserId !== null) {
       if (!Number.isInteger(payload.assignedToUserId) || payload.assignedToUserId <= 0) {
         throw new HttpError(400, 'assignedToUserId inválido.');
@@ -264,6 +288,7 @@ export class TasksService {
       await this.ensureAssigneeBelongsToUnit(payload.assignedToUserId, unitId);
     }
 
+    /** Construye payload parcial únicamente con campos presentes en la petición. */
     const request = await this.tasksRepository.createChangeRequest({
       taskId,
       organizationalUnitId: unitId,
@@ -280,10 +305,12 @@ export class TasksService {
       },
     });
 
+    /** Mantiene comportamiento directo de supervisor y flujo pendiente para estándar. */
     await this.autoApproveIfSupervisor(role, userId, request.id);
     return role === 'SUPERVISOR' ? { ...request, status: 'APPROVED' } : request;
   }
 
+  /** Registra operación de completado (directa o solicitada). */
   async requestTaskCompletion(
     userId: number,
     role: RoleCode,
@@ -291,6 +318,7 @@ export class TasksService {
     taskId: number,
     payload: CompleteTaskRequestInput,
   ): Promise<ChangeRequestCreated> {
+    /** Verifica existencia de tarea y pertenencia a unidad antes de solicitar cierre. */
     if (!Number.isInteger(taskId) || taskId <= 0) {
       throw new HttpError(400, 'taskId inválido.');
     }
@@ -307,10 +335,12 @@ export class TasksService {
       payload: {},
     });
 
+    /** Supervisor autoaprueba; estándar deja la solicitud en estado pendiente. */
     await this.autoApproveIfSupervisor(role, userId, request.id);
     return role === 'SUPERVISOR' ? { ...request, status: 'APPROVED' } : request;
   }
 
+  /** Registra operación de eliminación (directa o solicitada). */
   async requestTaskDeletion(
     userId: number,
     role: RoleCode,
@@ -318,6 +348,7 @@ export class TasksService {
     taskId: number,
     payload: DeleteTaskRequestInput,
   ): Promise<ChangeRequestCreated> {
+    /** Verifica existencia de tarea y scope de unidad antes de solicitar baja. */
     if (!Number.isInteger(taskId) || taskId <= 0) {
       throw new HttpError(400, 'taskId inválido.');
     }
@@ -334,6 +365,7 @@ export class TasksService {
       payload: {},
     });
 
+    /** Homologa respuesta para ambos roles tras aplicar política de autoaprobación. */
     await this.autoApproveIfSupervisor(role, userId, request.id);
     return role === 'SUPERVISOR' ? { ...request, status: 'APPROVED' } : request;
   }

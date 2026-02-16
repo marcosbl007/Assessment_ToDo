@@ -1,3 +1,7 @@
+/**
+ * - Lista de notificaciones del dashboard de supervisor.
+ * - Renderiza badges por tipo según título de evento.
+ */
 interface NotificationItem {
   id: number;
   title: string;
@@ -9,7 +13,9 @@ interface SupervisorNotificationsPageProps {
   notifications: NotificationItem[];
 }
 
+/** Renderiza bandeja de notificaciones o estado vacío. */
 export const SupervisorNotificationsPage = ({ notifications }: SupervisorNotificationsPageProps) => {
+  /** Estado vacío cuando no hay eventos nuevos. */
   if (notifications.length === 0) {
     return (
       <div className="overflow-hidden rounded-2xl border border-white/10 bg-[var(--fondo)]/85 backdrop-blur-sm">
@@ -23,6 +29,7 @@ export const SupervisorNotificationsPage = ({ notifications }: SupervisorNotific
   return (
     <div className="overflow-hidden rounded-2xl border border-white/10 bg-[var(--fondo)]/85 backdrop-blur-sm">
       {notifications.map((notification, index) => {
+        /** Deriva etiqueta visual según palabra clave del título. */
         const meta = getNotificationMeta(notification.title);
 
         return (
@@ -56,6 +63,8 @@ export const SupervisorNotificationsPage = ({ notifications }: SupervisorNotific
     </div>
   );
 };
+
+/** Clasifica notificación para mostrar tag y estilos asociados. */
 const getNotificationMeta = (title: string) => {
   if (title.toLowerCase().includes('creación') || title.toLowerCase().includes('creacion')) {
     return { tag: 'Nueva tarea', tagClass: 'bg-[#D9B24C]/15 text-[#F4D88A] border-[#D9B24C]/35' };

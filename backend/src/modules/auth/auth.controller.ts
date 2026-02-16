@@ -1,3 +1,7 @@
+/**
+ * - Controlador HTTP del módulo auth.
+ * - Orquesta entrada/salida y manejo de errores hacia `AuthService`.
+ */
 import type { Request, Response } from 'express';
 import { HttpError } from '../../shared/errors/HttpError';
 import type { AuthenticatedRequest } from '../../shared/types/authenticated-request';
@@ -7,6 +11,7 @@ import type { AuthService } from './application/services/auth.service';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  /** Registra un nuevo usuario y retorna token de sesión inicial. */
   register = async (req: Request, res: Response): Promise<void> => {
     try {
       const payload = req.body as RegisterRequest;
@@ -21,6 +26,7 @@ export class AuthController {
     }
   };
 
+  /** Autentica usuario por identifier y password. */
   login = async (req: Request, res: Response): Promise<void> => {
     try {
       const payload = req.body as LoginRequest;
@@ -35,6 +41,7 @@ export class AuthController {
     }
   };
 
+  /** Genera y envía token temporal para alta de supervisor. */
   requestSupervisorToken = async (req: Request, res: Response): Promise<void> => {
     try {
       const payload = req.body as SupervisorTokenRequest;
@@ -46,6 +53,7 @@ export class AuthController {
     }
   };
 
+  /** Devuelve perfil y permisos del usuario autenticado. */
   me = async (req: Request, res: Response): Promise<void> => {
     const authReq = req as AuthenticatedRequest;
 
@@ -65,6 +73,7 @@ export class AuthController {
     });
   };
 
+  /** Actualiza datos de perfil del usuario autenticado. */
   updateProfile = async (req: Request, res: Response): Promise<void> => {
     const authReq = req as AuthenticatedRequest;
 
@@ -86,6 +95,7 @@ export class AuthController {
     }
   };
 
+  /** Actualiza contraseña del usuario autenticado. */
   updatePassword = async (req: Request, res: Response): Promise<void> => {
     const authReq = req as AuthenticatedRequest;
 
@@ -106,6 +116,7 @@ export class AuthController {
     }
   };
 
+  /** Traduce errores de dominio y fallos inesperados a respuesta HTTP. */
   private handleAuthError(error: unknown, res: Response): void {
     if (error instanceof HttpError) {
       res.status(error.statusCode).json({ message: error.message });

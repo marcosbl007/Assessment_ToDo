@@ -1,3 +1,7 @@
+/**
+ * - Máquina de estados simple para flujo de auth (start/validate/persist/complete/fail).
+ * - Permite controlar transiciones válidas y estados finales.
+ */
 interface AuthFlowState {
   name: string;
   start(_context: AuthFlowContext): void;
@@ -9,6 +13,7 @@ interface AuthFlowState {
 
 class IdleState implements AuthFlowState {
   name = 'IDLE';
+  /** Inicia flujo y avanza a validación. */
   start(context: AuthFlowContext): void {
     context.setState(new ValidatingState());
   }
@@ -21,6 +26,7 @@ class IdleState implements AuthFlowState {
 class ValidatingState implements AuthFlowState {
   name = 'VALIDATING';
   start(): void { throw new Error('Ya iniciado'); }
+  /** Tras validar reglas de entrada avanza a persistencia. */
   validate(context: AuthFlowContext): void { context.setState(new PersistingState()); }
   persist(): void { throw new Error('Debes validar antes de persistir'); }
   complete(): void { throw new Error('No puedes completar sin persistir'); }
@@ -31,6 +37,7 @@ class PersistingState implements AuthFlowState {
   name = 'PERSISTING';
   start(): void { throw new Error('Ya iniciado'); }
   validate(): void { throw new Error('Ya validado'); }
+  /** Marca persistencia finalizada y cierra en éxito. */
   persist(context: AuthFlowContext): void { context.setState(new SuccessState()); }
   complete(): void { throw new Error('Completa primero persistencia'); }
   fail(context: AuthFlowContext): void { context.setState(new FailedState()); }
@@ -61,6 +68,7 @@ export class AuthFlowContext {
     this.state = new IdleState();
   }
 
+  /** Cambia explícitamente al siguiente estado interno. */
   setState(nextState: AuthFlowState): void {
     this.state = nextState;
   }
@@ -71,6 +79,7 @@ export class AuthFlowContext {
   complete(): void { this.state.complete(this); }
   fail(): void { this.state.fail(this); }
 
+  /** Nombre legible del estado actual para depuración/trazabilidad. */
   get currentState(): string {
     return this.state.name;
   }

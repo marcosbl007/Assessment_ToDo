@@ -1,3 +1,7 @@
+/**
+ * - Barra de filtros y ordenamiento para listados de tareas/solicitudes.
+ * - Se reutiliza en dashboards de supervisor y estándar.
+ */
 import { FaSearch } from 'react-icons/fa';
 import type { TaskItem } from '../../../../types';
 import type { TaskSortBy } from '../../types';

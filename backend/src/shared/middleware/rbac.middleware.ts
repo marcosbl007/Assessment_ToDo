@@ -1,7 +1,14 @@
+/**
+ * - Middleware RBAC para autorización por permisos.
+ * - Evalúa si el usuario autenticado posee el permiso requerido.
+ */
 import type { Request, Response, NextFunction } from 'express';
 import { authService } from '../../modules/auth/auth.container';
 import type { AuthenticatedRequest } from '../types/authenticated-request';
 
+/**
+ * Fábrica de middleware que protege una ruta por código de permiso.
+ */
 export function requirePermission(permissionCode: string) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const authReq = req as AuthenticatedRequest;

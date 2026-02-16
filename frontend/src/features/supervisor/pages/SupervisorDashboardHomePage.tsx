@@ -1,3 +1,7 @@
+/**
+ * - Vista de tarjetas del dashboard general de tareas.
+ * - Incluye modal de detalle con acciones y edición contextual.
+ */
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { TaskItem, UnitUser } from '../../../types';

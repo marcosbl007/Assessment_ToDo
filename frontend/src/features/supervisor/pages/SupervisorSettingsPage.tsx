@@ -1,7 +1,12 @@
+/**
+ * - Vista de configuración del supervisor.
+ * - Permite actualizar perfil y contraseña con validaciones locales.
+ */
 import { useState } from 'react';
 import { FaLock, FaUserEdit } from 'react-icons/fa';
 import type { SupervisorProfileForm } from '../types';
 
+/** Contrato de props para acciones de perfil y seguridad. */
 interface SupervisorSettingsPageProps {
   profileForm: SupervisorProfileForm;
   onProfileFormChange: (next: SupervisorProfileForm) => void;
@@ -15,17 +20,22 @@ export const SupervisorSettingsPage = ({
   onSave,
   onPasswordUpdate,
 }: SupervisorSettingsPageProps) => {
+  /** Estado local del formulario de cambio de contraseña. */
   const [passwordForm, setPasswordForm] = useState({
     newPassword: '',
     confirmPassword: '',
   });
+  /** Mensaje de éxito para feedback de actualización de contraseña. */
   const [passwordFeedback, setPasswordFeedback] = useState<string | null>(null);
+  /** Mensaje de error reutilizado por operaciones de perfil/contraseña. */
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
+  /** Ejecuta validaciones mínimas y delega actualización de contraseña. */
   const handlePasswordUpdate = async () => {
     setPasswordFeedback(null);
     setPasswordError(null);
 
+    /** Requiere ambos campos antes de continuar. */
     if (!passwordForm.newPassword || !passwordForm.confirmPassword) {
       setPasswordError('Completa todos los campos para actualizar la contraseña.');
       return;
@@ -41,6 +51,7 @@ export const SupervisorSettingsPage = ({
       return;
     }
 
+    /** Limpia formulario tras actualización exitosa. */
     try {
       await onPasswordUpdate(passwordForm.newPassword);
       setPasswordFeedback('Contraseña actualizada correctamente.');
@@ -50,6 +61,7 @@ export const SupervisorSettingsPage = ({
     }
   };
 
+  /** Delega persistencia del perfil al contenedor superior. */
   const handleSaveProfile = async () => {
     setPasswordFeedback(null);
     setPasswordError(null);

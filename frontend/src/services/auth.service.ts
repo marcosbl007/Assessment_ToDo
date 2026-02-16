@@ -1,3 +1,7 @@
+/**
+ * - Cliente HTTP de autenticación para login, registro y perfil.
+ * - Centraliza token de sesión y mapeo de respuestas API a tipos frontend.
+ */
 import type {
   LoginFormData,
   RegisterFormData,
@@ -17,15 +21,19 @@ interface AuthApiUser {
   role: 'STANDARD' | 'SUPERVISOR';
 }
 
+/** Contrato de respuesta estándar en endpoints auth que devuelven token+usuario. */
 interface AuthApiResponse {
   message: string;
   token: string;
   user: AuthApiUser;
 }
 
+/** Base URL configurable por entorno para las llamadas del cliente auth. */
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+/** Clave única usada para persistir el JWT en localStorage. */
 const TOKEN_KEY = 'assessment_token';
 
+/** Adapta shape de usuario backend al modelo consumido por la UI. */
 function mapApiUser(user: AuthApiUser): User {
   return {
     id: String(user.id),
@@ -36,9 +44,11 @@ function mapApiUser(user: AuthApiUser): User {
   };
 }
 
+/** Intenta extraer mensaje de error HTTP y lanza excepción legible. */
 async function parseError(response: Response): Promise<never> {
   let message = 'Error inesperado en la solicitud';
 
+  /** Prioriza `message` JSON del backend cuando está disponible. */
   try {
     const payload = (await response.json()) as { message?: string };
     if (payload.message) {
@@ -51,6 +61,7 @@ async function parseError(response: Response): Promise<never> {
   throw new Error(message);
 }
 
+/** Ejecuta login con credenciales y retorna token + usuario normalizado. */
 export async function loginRequest(data: LoginFormData): Promise<{ token: string; user: User }> {
   const body = {
     identifier: data.username,
@@ -74,6 +85,7 @@ export async function loginRequest(data: LoginFormData): Promise<{ token: string
   };
 }
 
+/** Registra usuario nuevo y retorna sesión inicial. */
 export async function registerRequest(data: RegisterFormData): Promise<{ token: string; user: User }> {
   const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
     method: 'POST',
@@ -92,6 +104,7 @@ export async function registerRequest(data: RegisterFormData): Promise<{ token: 
   };
 }
 
+/** Solicita token temporal de supervisor para habilitar registro de ese rol. */
 export async function requestSupervisorToken(
   data: SupervisorTokenRequestData,
 ): Promise<SupervisorTokenRequestResult> {
@@ -108,18 +121,22 @@ export async function requestSupervisorToken(
   return (await response.json()) as SupervisorTokenRequestResult;
 }
 
+/** Persiste token JWT en almacenamiento local. */
 export function saveSession(token: string): void {
   localStorage.setItem(TOKEN_KEY, token);
 }
 
+/** Elimina token de sesión almacenado. */
 export function clearSession(): void {
   localStorage.removeItem(TOKEN_KEY);
 }
 
+/** Recupera token persistido de sesión, si existe. */
 export function getSessionToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
 
+/** Obtiene perfil actual y permisos del usuario autenticado. */
 export async function meRequest(): Promise<{ user: User; permissions: string[] }> {
   const token = getSessionToken();
   if (!token) {
@@ -148,6 +165,7 @@ export async function meRequest(): Promise<{ user: User; permissions: string[] }
   };
 }
 
+/** Actualiza datos de perfil del usuario autenticado. */
 export async function updateProfileRequest(data: UpdateProfileData): Promise<User> {
   const token = getSessionToken();
   if (!token) {
@@ -171,6 +189,7 @@ export async function updateProfileRequest(data: UpdateProfileData): Promise<Use
   return mapApiUser(payload.user);
 }
 
+/** Actualiza contraseña del usuario autenticado. */
 export async function updatePasswordRequest(data: UpdatePasswordData): Promise<void> {
   const token = getSessionToken();
   if (!token) {
