@@ -17,7 +17,7 @@ export const PaginationControls = ({ currentPage, totalPages, onPageChange }: Pa
   const canGoNext = currentPage < totalPages;
 
   return (
-    <div className="mt-3 flex w-full flex-col items-center justify-center gap-1.5 pb-1">
+    <div className="mt-2 flex w-full flex-col items-center justify-center gap-1.5 lg:fixed lg:bottom-4 lg:left-1/2 lg:z-40 lg:w-auto lg:-translate-x-1/2">
       <div className="flex items-center gap-2 px-2 py-1.5">
         <button
           type="button"

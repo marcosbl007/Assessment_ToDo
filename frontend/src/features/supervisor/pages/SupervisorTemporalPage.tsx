@@ -7,7 +7,7 @@ import type { PendingTaskChangeRequest } from '../../../types';
 import { PaginationControls } from '../components/molecules/PaginationControls';
 import { changeTypeLabelMap, formatDate } from '../utils';
 
-const ITEMS_PER_PAGE = 8;
+const ITEMS_PER_PAGE = 6;
 
 interface SupervisorTemporalPageProps {
   pendingRequests: PendingTaskChangeRequest[];
@@ -43,13 +43,13 @@ export const SupervisorTemporalPage = ({ pendingRequests, onDecision, readOnly =
   }, [pendingRequests, currentPage]);
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+    <div className="flex min-h-[calc(100dvh-280px)] flex-col gap-4 pb-6 lg:pb-24">
+      <div className="grid auto-rows-fr grid-cols-1 gap-x-3 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
         {paginatedRequests.map((request) => (
           <article
             key={request.id}
             onClick={readOnly ? undefined : () => setSelectedRequest(request)}
-            className={`relative overflow-hidden rounded-lg bg-[#15161B] p-4 shadow-[0_8px_24px_rgba(0,0,0,0.35)] ${
+            className={`relative h-full min-h-[250px] overflow-hidden rounded-lg bg-[#15161B] p-4 shadow-[0_8px_24px_rgba(0,0,0,0.35)] ${
               readOnly ? '' : 'cursor-pointer'
             }`}
           >
@@ -61,7 +61,7 @@ export const SupervisorTemporalPage = ({ pendingRequests, onDecision, readOnly =
               }}
             />
 
-            <div className="relative z-10">
+            <div className="relative z-10 flex h-full flex-col pt-4">
               <div className="mb-2 flex items-start justify-between gap-2">
                 <span className="text-sm font-semibold text-[var(--blanco)]/80">Solicitud #{request.id}</span>
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusClassMap[request.status]}`}>
@@ -69,7 +69,7 @@ export const SupervisorTemporalPage = ({ pendingRequests, onDecision, readOnly =
                 </span>
               </div>
 
-              <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="mt-4 mb-3 flex items-center justify-between gap-2">
                 <span className="rounded-full bg-[#1E2431] px-2 py-0.5 text-[10px] font-semibold text-[#8ED0FF]">
                   {changeTypeLabelMap[request.changeType]}
                 </span>
@@ -82,14 +82,14 @@ export const SupervisorTemporalPage = ({ pendingRequests, onDecision, readOnly =
                 </span>
               </div>
 
-              <h4 className="mb-1 line-clamp-2 text-sm font-semibold text-[var(--blanco)]">
+              <h4 className="mb-2 line-clamp-2 text-sm font-semibold text-[var(--blanco)]">
                 {request.currentTaskTitle ?? 'Nueva tarea solicitada'}
               </h4>
-              <p className="mb-3 min-h-[48px] text-xs leading-relaxed text-[var(--blanco)]/65">
+              <p className="mb-4 line-clamp-3 text-xs leading-relaxed text-[var(--blanco)]/65">
                 {request.reason || 'Solicitud enviada para revisión del supervisor.'}
               </p>
 
-              <div className="flex items-center gap-2">
+              <div className="mt-auto flex items-center gap-2">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#B8D9CC] text-[10px] font-bold text-[#2A6B56]">
                   {request.requestedBy
                     .split(' ')

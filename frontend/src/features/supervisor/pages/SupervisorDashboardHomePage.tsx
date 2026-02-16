@@ -8,7 +8,7 @@ import type { TaskItem, UnitUser } from '../../../types';
 import { PaginationControls } from '../components/molecules/PaginationControls';
 import { formatDate } from '../utils';
 
-const ITEMS_PER_PAGE = 8;
+const ITEMS_PER_PAGE = 6;
 
 interface SupervisorDashboardHomePageProps {
   tasks: TaskItem[];
@@ -100,19 +100,19 @@ export const SupervisorDashboardHomePage = ({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="flex min-h-[calc(100dvh-280px)] flex-col gap-4 pb-6 lg:pb-24">
       {tasks.length === 0 && (
         <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4 text-sm text-[var(--blanco)]/75">
           No hay tareas aprobadas en este momento.
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+      <div className="grid auto-rows-fr grid-cols-1 gap-x-3 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
         {paginatedTasks.map((task) => (
           <article
             key={task.id}
             onClick={() => setSelectedTask(task)}
-            className="relative cursor-pointer overflow-hidden rounded-lg bg-[#15161B] p-4 shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
+            className="relative h-full min-h-[250px] cursor-pointer overflow-hidden rounded-lg bg-[#15161B] p-4 shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
           >
             <div
               className="pointer-events-none absolute top-0 left-0 h-20 w-full"
@@ -122,7 +122,7 @@ export const SupervisorDashboardHomePage = ({
               }}
             />
 
-            <div className="relative z-10">
+            <div className="relative z-10 flex h-full flex-col pt-4">
               <div className="mb-2 flex items-start justify-between gap-2">
                 <span className="text-sm font-semibold text-[var(--blanco)]/80">#{task.id}</span>
                 <span className={`text-xs font-semibold uppercase tracking-[0.06em] ${statusClassMap[task.status]}`}>
@@ -130,7 +130,7 @@ export const SupervisorDashboardHomePage = ({
                 </span>
               </div>
 
-              <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="mt-4 mb-3 flex items-center justify-between gap-2">
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${priorityClassMap[task.priority]}`}>
                   Prioridad {priorityLabelMap[task.priority]}
                 </span>
@@ -139,10 +139,10 @@ export const SupervisorDashboardHomePage = ({
                 </span>
               </div>
 
-              <h4 className="mb-1 line-clamp-2 text-sm font-semibold text-[var(--blanco)]">{task.title}</h4>
-              <p className="mb-3 min-h-[48px] text-xs leading-relaxed text-[var(--blanco)]/65">{task.description}</p>
+              <h4 className="mb-2 line-clamp-2 text-sm font-semibold text-[var(--blanco)]">{task.title}</h4>
+              <p className="mb-4 line-clamp-3 text-xs leading-relaxed text-[var(--blanco)]/65">{task.description}</p>
 
-              <div className="flex items-center gap-2">
+              <div className="mt-auto flex items-center gap-2">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#B8D9CC] text-[10px] font-bold text-[#2A6B56]">
                   {getInitials(task.assignedTo ?? task.createdBy)}
                 </span>
