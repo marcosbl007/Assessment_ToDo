@@ -1,0 +1,57 @@
+/**
+ * - Controles de paginación compactos para el dashboard supervisor.
+ * - Habilita/deshabilita navegación según página actual.
+ */
+import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+
+/** Props de navegación para cambiar entre páginas. */
+interface PaginationControlsProps {
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}
+
+export const PaginationControls = ({ currentPage, totalPages, onPageChange }: PaginationControlsProps) => {
+  /** Flags derivados para control de botones anterior/siguiente. */
+  const canGoPrev = currentPage > 1;
+  const canGoNext = currentPage < totalPages;
+
+  return (
+    <div className="mt-2 flex w-full flex-col items-center justify-center gap-1.5 lg:fixed lg:bottom-4 lg:left-1/2 lg:z-40 lg:w-auto lg:-translate-x-1/2">
+      <div className="flex items-center gap-2 px-2 py-1.5">
+        <button
+          type="button"
+          onClick={() => canGoPrev && onPageChange(currentPage - 1)}
+          disabled={!canGoPrev}
+          className="flex h-7 w-7 items-center justify-center rounded text-[var(--blanco)]/70 disabled:cursor-not-allowed disabled:opacity-35"
+          aria-label="Página anterior"
+        >
+          <FaChevronLeft size={10} />
+        </button>
+
+        <button
+          type="button"
+          className="relative flex h-7 min-w-7 items-center justify-center px-2 text-xs font-semibold text-[var(--blanco)]"
+          aria-current="page"
+        >
+          {currentPage}
+          <span className="pointer-events-none absolute -bottom-[2px] left-0 right-0 h-[2px] bg-[var(--dorado)]" />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => canGoNext && onPageChange(currentPage + 1)}
+          disabled={!canGoNext}
+          className="flex h-7 w-7 items-center justify-center rounded text-[var(--blanco)]/70 disabled:cursor-not-allowed disabled:opacity-35"
+          aria-label="Página siguiente"
+        >
+          <FaChevronRight size={10} />
+        </button>
+      </div>
+
+      <p className="text-xs text-[var(--blanco)]/70">
+        Página {currentPage} de {totalPages}
+      </p>
+    </div>
+  );
+};
