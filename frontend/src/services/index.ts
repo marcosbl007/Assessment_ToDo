@@ -4,4 +4,4 @@
  * - Mantiene separada la lógica de red respecto de componentes UI.
  */
 
-export {};
+export * from './auth.service';

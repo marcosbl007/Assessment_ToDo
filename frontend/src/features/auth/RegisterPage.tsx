@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { RegisterForm } from '../../components/molecules';
 import { AuthLayout } from '../../components/organisms';
 import type { RegisterFormData } from '../../types';
+import { registerRequest, requestSupervisorToken } from '../../services';
 
 /** Contrato de navegación a nivel de página. */
 interface RegisterPageProps {
@@ -28,16 +29,25 @@ export const RegisterPage = ({ onGoToLogin }: RegisterPageProps) => {
     setError(null);
 
     try {
-      console.log('Register attempt:', data);
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      alert('Registro exitoso! (implementar integración backend)');
+      await registerRequest(data);
+      alert('Registro exitoso. Ahora inicia sesión con tus credenciales.');
       onGoToLogin?.();
-    } catch {
-      setError('Error al registrarte. Intenta nuevamente.');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Error al registrarte. Intenta nuevamente.');
+      }
     } finally {
       setIsLoading(false);
     }
   };
+
+  const handleRequestSupervisorToken = (data: {
+    name: string;
+    email: string;
+    organizationalUnit: string;
+  }) => requestSupervisorToken(data);
 
   return (
     <AuthLayout title="REGISTRO">
@@ -46,6 +56,7 @@ export const RegisterPage = ({ onGoToLogin }: RegisterPageProps) => {
         isLoading={isLoading}
         error={error || undefined}
         onGoToLogin={onGoToLogin}
+        onRequestSupervisorToken={handleRequestSupervisorToken}
       />
     </AuthLayout>
   );

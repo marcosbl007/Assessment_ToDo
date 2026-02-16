@@ -1,0 +1,16 @@
+import { Router } from 'express';
+import { AuthController } from './auth.controller';
+import { authService } from './auth.container';
+import { authenticate } from '../../shared/middleware/auth.middleware';
+import { requirePermission } from '../../shared/middleware/rbac.middleware';
+
+export const authRouter = Router();
+const authController = new AuthController(authService);
+
+authRouter.post('/register', authController.register);
+authRouter.post('/login', authController.login);
+authRouter.post('/supervisor-token/request', authController.requestSupervisorToken);
+authRouter.get('/me', authenticate, authController.me);
+authRouter.get('/can-approve', authenticate, requirePermission('TASK_APPROVE_CHANGES'), (_req, res) => {
+	res.status(200).json({ message: 'Permiso de aprobación confirmado' });
+});
